@@ -36,11 +36,19 @@ int main(int argc, char* argv[]) {
 		exit(2); 
 	}
 
-	struct tm data_actual;
-	char nome_pasta[20];
+	time_t rawtime;
+	struct tm * timeinfo;
+	char nome_pasta [20];
+
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+
+	strftime(nome_pasta,80,"%Y_%m_%d_%H_%M_%S", timeinfo);
+	//printf(buffer);
 
 	//year_month_day_hours_minutes_seconds (example: 2013_03_15_12_30_00)
-	sprintf(nome_pasta, "%d_%d_%d_%d_%d_%d", data_actual.tm_year, data_actual.tm_mon, data_actual.tm_mday, data_actual.tm_hour, data_actual.tm_min, data_actual.tm_sec);
+	//sprintf(nome_pasta, "%d_%d_%d_%d_%d_%d", data_actual.tm_year, data_actual.tm_mon, data_actual.tm_mday, data_actual.tm_hour, data_actual.tm_min, data_actual.tm_sec);
+
 
 	if(chdir(argv[2])==-1) {
 		perror(argv[2]);
@@ -48,7 +56,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	//criar pasta backup
-	if((mkdir("nome_pasta", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH | EEXIST))==-1) {
+	if((mkdir(nome_pasta, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH | EEXIST))==-1) {
 		perror(nome_pasta);
 		exit(4);
 	}
