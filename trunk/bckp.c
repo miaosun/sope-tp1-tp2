@@ -8,6 +8,8 @@
 #include <sys/types.h>
 #include <time.h>
 
+#define BUFFER_SIZE 1024
+
 int main(int argc, char* argv[]) {
 
 	if(argc!=4){
@@ -72,12 +74,38 @@ int main(int argc, char* argv[]) {
 
 		if (S_ISREG(stat_buf.st_mode)) { //regular file
 			printf("regular\n");
-			//TODO
+
+			// copy file
+			int fd1, fd2, nr, nw;
+
+			fd1 = open(direntp->d_name, O_RDONLY); 
+			if (fd1 == -1) {
+				perror(argv[1]); 
+				return 2; 
+			}
+			fd2 = open(/* pathname */, O_WRONLY | O_CREAT | O_EXCL, 0644); 
+			if (fd2 == -1) { 
+				perror(argv[2]); 
+				close(fd1); 
+				return 3; 
+			} 
+			while ((nr = read(fd1, buffer, BUFFER_SIZE)) > 0) 
+				if ((nw = write(fd2, buffer, nr)) <= 0 || nw != nr) { 
+					perror(argv[2]); 
+					close(fd1); 
+					close(fd2); 
+					return 4; 
+				} 
+			close(fd1); 
+			close(fd2);
+
+			// end copy file
+
 		}
 	}
-	
+
 	closedir(dir1);
-	
+
 	printf("OK!\n\n");
 	exit(0);
 
