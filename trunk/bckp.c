@@ -44,11 +44,6 @@ int main(int argc, char* argv[]) {
 	timeinfo = localtime(&rawtime);
 
 	strftime(nome_pasta,80,"%Y_%m_%d_%H_%M_%S", timeinfo);
-	//printf(buffer);
-
-	//year_month_day_hours_minutes_seconds (example: 2013_03_15_12_30_00)
-	//sprintf(nome_pasta, "%d_%d_%d_%d_%d_%d", data_actual.tm_year, data_actual.tm_mon, data_actual.tm_mday, data_actual.tm_hour, data_actual.tm_min, data_actual.tm_sec);
-
 
 	if(chdir(argv[2])==-1) {
 		perror(argv[2]);
@@ -60,13 +55,30 @@ int main(int argc, char* argv[]) {
 		perror(nome_pasta);
 		exit(4);
 	}
+	closedir(dir2);
 
-	closedir(dir2); 
+	struct dirent *direntp; 
+	struct stat stat_buf;
 
+	chdir(argv[1]);
+
+	while ((direntp = readdir(dir1)) != NULL) 
+	{ 
+		if (lstat(direntp->d_name, &stat_buf)==-1)
+		{
+			perror("lstat ERROR");
+			exit(3);
+		}
+
+		if (S_ISREG(stat_buf.st_mode)) { //regular file
+			printf("regular\n");
+			//TODO
+		}
+	}
+	
+	closedir(dir1);
+	
 	printf("OK!\n\n");
 	exit(0);
-
-	//chdir(argv[1]);
-	//closedir(dirp);
 
 }
