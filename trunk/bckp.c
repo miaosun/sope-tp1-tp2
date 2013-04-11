@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
+#include <fcntl.h> //open files
 
 #define BUFFER_SIZE 1024
 
@@ -73,31 +74,41 @@ int main(int argc, char* argv[]) {
 		}
 
 		if (S_ISREG(stat_buf.st_mode)) { //regular file
-			printf("regular\n");
-
+			
 			// copy file
 			int fd1, fd2, nr, nw;
+			unsigned char buffer[BUFFER_SIZE]; 
 
 			fd1 = open(direntp->d_name, O_RDONLY); 
 			if (fd1 == -1) {
 				perror(argv[1]); 
-				return 2; 
+				exit(5); 
 			}
-			fd2 = open(/* pathname */, O_WRONLY | O_CREAT | O_EXCL, 0644); 
-			if (fd2 == -1) { 
+			
+			//cria pathname do ficheiro a copiar
+			char pathname[100];
+			
+			if((strlen(argv[2])-1)=='/')
+				sprintf(pathname, "%s%s/%s", argv[2],nome_pasta, direntp->d_name);
+			else
+				sprintf(pathname, "%s/%s/%s", argv[2],nome_pasta, direntp->d_name);
+			
+	
+			fd2 = open(pathname, O_WRONLY | O_CREAT | O_EXCL, 0644);
+			if (fd2 == -1) {
 				perror(argv[2]); 
-				close(fd1); 
-				return 3; 
+				close(fd1);
+				exit(5);
 			} 
 			while ((nr = read(fd1, buffer, BUFFER_SIZE)) > 0) 
 				if ((nw = write(fd2, buffer, nr)) <= 0 || nw != nr) { 
 					perror(argv[2]); 
 					close(fd1); 
 					close(fd2); 
-					return 4; 
-				} 
+					exit(6); 
+				}
 			close(fd1); 
-			close(fd2);
+			close(fd2); 
 
 			// end copy file
 
@@ -106,7 +117,7 @@ int main(int argc, char* argv[]) {
 
 	closedir(dir1);
 
-	printf("OK!\n\n");
+	printf("Finishing!\n\n");
 	exit(0);
 
 }
