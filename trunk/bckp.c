@@ -7,6 +7,45 @@ DIR *d1, *d2;
 int dt;
 
 
+void fileCopy(char* path, char* nome_pasta) {
+
+			int fd1, fd2, nr, nw;
+			unsigned char buffer[BUFFER_SIZE]; 
+
+			fd1 = open(path, O_RDONLY); 
+			if (fd1 == -1) {
+				perror(dir1); 
+				exit(5); 
+			}
+			
+			//cria pathname do ficheiro a copiar
+			char filePath[PATH_MAX];
+			sprintf(filePath, "%s/%s/%s", dir2,nome_pasta, path);
+			
+	
+			fd2 = open(filePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
+			if (fd2 == -1) {
+				perror(dir2); 
+				close(fd1);
+				exit(5);
+			} 
+			while ((nr = read(fd1, buffer, BUFFER_SIZE)) > 0) 
+				if ((nw = write(fd2, buffer, nr)) <= 0 || nw != nr) { 
+					perror(dir2); 
+					close(fd1); 
+					close(fd2); 
+					exit(6); 
+				}
+
+			/*teste erro*///write(fd_info, direntp->d_name, sizeof(dirent->d_name)); //falta /n?
+			/*teste erro*///write(infoPath, stat_buf.st_mtime, sizeof(stat_buf.st_mtime));
+			/*teste erro*///write(infoPath, dirPath, sizeof(dirPath));
+			close(fd1); 
+			close(fd2); 
+
+}
+
+
 int main(int argc, char* argv[]) {
 
 	dir1=argv[1];
@@ -93,49 +132,17 @@ int main(int argc, char* argv[]) {
 		}
 		
 		if (S_ISREG(stat_buf.st_mode)) { //regular file
-		
+		/*
 		pid_t pid = fork();
 		if(pid==0) {
 			//copia ficheiro TODO
+			fileCopy();
 		}
 		else {
 			//wait status filho TODO
-		}
+		} */
 		// copy file
-			int fd1, fd2, nr, nw;
-			unsigned char buffer[BUFFER_SIZE]; 
-
-			fd1 = open(direntp->d_name, O_RDONLY); 
-			if (fd1 == -1) {
-				perror(argv[1]); 
-				exit(5); 
-			}
-			
-			//cria pathname do ficheiro a copiar
-			char filePath[PATH_MAX];
-			sprintf(filePath, "%s/%s/%s", argv[2],nome_pasta, direntp->d_name);
-			
-	
-			fd2 = open(filePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
-			if (fd2 == -1) {
-				perror(argv[2]); 
-				close(fd1);
-				exit(5);
-			} 
-			while ((nr = read(fd1, buffer, BUFFER_SIZE)) > 0) 
-				if ((nw = write(fd2, buffer, nr)) <= 0 || nw != nr) { 
-					perror(argv[2]); 
-					close(fd1); 
-					close(fd2); 
-					exit(6); 
-				}
-
-			/*teste erro*///write(fd_info, direntp->d_name, sizeof(dirent->d_name)); //falta /n?
-			/*teste erro*///write(infoPath, stat_buf.st_mtime, sizeof(stat_buf.st_mtime));
-			/*teste erro*///write(infoPath, dirPath, sizeof(dirPath));
-			close(fd1); 
-			close(fd2); 
-
+		fileCopy(direntp->d_name, nome_pasta);	
 		// end copy file
 
 		}
