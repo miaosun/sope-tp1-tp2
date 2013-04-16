@@ -55,11 +55,7 @@ int main(int argc, char* argv[]) {
 	}
 
 
-	//abre directório (d1) a ser monitorizado
-	if ((d1 = opendir(dir1)) == NULL) { 
-		perror(dir1);
-		exit(2); 
-	}
+
 	//cria directório de backup (d2)
 	//int mkdir(const char *pathname, mode_t mode);
 	if((mkdir(dir2, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH | EEXIST))==-1) {
@@ -74,6 +70,13 @@ int main(int argc, char* argv[]) {
 
 
 	while(1) {
+		//abre directório (d1) a ser monitorizado
+		if ((d1 = opendir(dir1)) == NULL) { 
+			perror(dir1);
+			exit(2); 
+		}
+
+
 		// cria pasta backup incremental (YY_MM_DD_HH_MM_SS)
 		//TODO se nao usada, tem q ser apagada
 		time_t rawtime;
@@ -159,7 +162,7 @@ int main(int argc, char* argv[]) {
 				}
 			}
 		}
-		//closedir(d1);
+		closedir(d1);
 		sleep(dt);
 	}
 
