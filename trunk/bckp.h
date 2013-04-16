@@ -10,10 +10,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
-#include <fcntl.h> //open files
+#include <fcntl.h>
+#include <wait.h>
+
 
 #define BUFFER_SIZE 1024
-//#define PATH_MAX 
+
+//funcao que efectua a copia (backup) de um ficheiro de nome "file_name" para a pasta "nome_pasta"
+void fileCopy(char* file_name, char* nome_pasta);
 
 
 #endif
