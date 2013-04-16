@@ -15,7 +15,7 @@
 DIR *d2, *d3, *d4;
 
 
-
+char* dir1;
 char* dir2;
 char* dir3;
 
@@ -27,7 +27,7 @@ void fileCopy(char* path, char* nome_pasta) {
 
 			fd1 = open(path, O_RDONLY); 
 			if (fd1 == -1) {
-				perror(dir1); 
+				perror(path); 
 				exit(5); 
 			}
 			
