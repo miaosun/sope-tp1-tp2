@@ -15,12 +15,11 @@
 DIR *d2, *d3, *d4;
 
 
-char* dir1;
 char* dir2;
 char* dir3;
 
 
-void fileCopy(char* path, char* nome_pasta) {
+void fileCopy(char* path, char* dir3) {
 
 			int fd1, fd2, nr, nw;
 			unsigned char buffer[BUFFER_SIZE]; 
@@ -33,18 +32,18 @@ void fileCopy(char* path, char* nome_pasta) {
 			
 			//cria pathname do ficheiro a copiar
 			char filePath[PATH_MAX];
-			sprintf(filePath, "%s/%s/%s", dir2,nome_pasta, path);
+			sprintf(filePath, "%s/%s", dir3,path);
 			
 	
 			fd2 = open(filePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
 			if (fd2 == -1) {
-				perror(dir2); 
+				perror(dir3); 
 				close(fd1);
 				exit(5);
 			} 
 			while ((nr = read(fd1, buffer, BUFFER_SIZE)) > 0) 
 				if ((nw = write(fd2, buffer, nr)) <= 0 || nw != nr) { 
-					perror(dir2); 
+					perror(dir3); 
 					close(fd1); 
 					close(fd2); 
 					exit(6); 
@@ -101,7 +100,7 @@ int main(int argc, char* argv[]) {
 	}
 	else
 	{
-		perror("argv[1]");
+		perror("dir2");
 		exit(4);
 	}
 
@@ -147,9 +146,9 @@ int main(int argc, char* argv[]) {
 					perror("lstat ERROR");
 					exit(3);
 				}
-		
+				printf("\nnao sei porque\n");
 				if (S_ISREG(stat_buf.st_mode))
-					fileCopy(direntp->d_name, argv[2]);		
+					fileCopy(direntp->d_name, dir3);		
 			}
 
 			closedir(d4);
