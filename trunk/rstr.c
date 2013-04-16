@@ -37,7 +37,7 @@ void fileCopy(char* path, char* dir3) {
 	
 			fd2 = open(filePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
 			if (fd2 == -1) {
-				perror(dir3); 
+				perror(filePath); 
 				close(fd1);
 				exit(5);
 			} 
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
 
 	//teste utilização
 	if(argc!=3){
-		printf("usage: %s d1 d2\n",argv[0]);
+		printf("usage: %s dir2 dir3\n",argv[0]);
 		exit(1);
 	}
 
@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
 	}
 	else
 	{
-		perror("dir2");
+		perror(dir2);
 		exit(4);
 	}
 
@@ -128,11 +128,12 @@ int main(int argc, char* argv[]) {
 	{
 		if(strcmp(namelist[i]->d_name, op_dir) == 0)
 		{
-			//chdir(argv[1]);
+			
 			struct dirent *direntp; 
 			struct stat stat_buf;
 			char path1[PATH_MAX];
 			sprintf(path1, "%s/%s", dir2,op_dir);
+			chdir(path1);
 			if ((d4 = opendir(path1)) == NULL) { 
 				perror(op_dir);
 				exit(2); 
@@ -140,13 +141,11 @@ int main(int argc, char* argv[]) {
 
 			while ((direntp = readdir(d4)) != NULL) 
 			{ 
-				printf("testtesttest: %s\n", direntp->d_name);
 				if (lstat(direntp->d_name, &stat_buf)==-1)
 				{
 					perror("lstat ERROR");
 					exit(3);
 				}
-				printf("\nnao sei porque\n");
 				if (S_ISREG(stat_buf.st_mode))
 					fileCopy(direntp->d_name, dir3);		
 			}
