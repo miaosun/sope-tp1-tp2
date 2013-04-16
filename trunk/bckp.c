@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
 	dir2=argv[2];
 	dt = atoi(argv[3]);
 
-	//teste utilização
+	//informação de utilização, caso utilizador não insira todos os parâmetros
 	if(argc!=4){
 		printf("usage: %s d1 d2 dt &\n",argv[0]);
 		exit(1);
