@@ -13,22 +13,17 @@ void fileCopy(char* path1, char* path2) {
 			if (fd1 == -1) {
 				perror(path1); 
 				exit(5); 
-			}
-			
-			//cria pathname do ficheiro a copiar
-			char filePath[PATH_MAX];
-			sprintf(filePath, "%s/%s", path2,path1);
-			
+			}			
 	
-			fd2 = open(filePath, O_WRONLY | O_CREAT | O_EXCL, 0644);
+			fd2 = open(path2, O_WRONLY | O_CREAT | O_EXCL, 0644);
 			if (fd2 == -1) {
-				perror(filePath); 
+				perror(path2); 
 				close(fd1);
 				exit(5);
 			} 
 			while ((nr = read(fd1, buffer, BUFFER_SIZE)) > 0) 
 				if ((nw = write(fd2, buffer, nr)) <= 0 || nw != nr) { 
-					perror(filePath); 
+					perror(path2); 
 					close(fd1); 
 					close(fd2); 
 					exit(6); 
