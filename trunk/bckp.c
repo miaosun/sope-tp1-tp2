@@ -38,22 +38,20 @@ void fileCopy(char* file_name, char* nome_pasta) {
 		}
 	close(fd1); 
 	close(fd2); 
-
 }
 
 
 int main(int argc, char* argv[]) {
 
-	dir1=argv[1];
-	dir2=argv[2];
-	dt = atoi(argv[3]);
+	dir1 = argv[1]; //directório 1 (a fazer backup)
+	dir2 = argv[2]; //directorio 2 (destino backup)
+	dt = atoi(argv[3]); //dt = intervalo de tempo entre backups
 
 	//informação de utilização, caso utilizador não insira todos os parâmetros
 	if(argc!=4){
 		printf("usage: %s d1 d2 dt &\n",argv[0]);
 		exit(1);
 	}
-
 
 
 	//cria directório de backup (d2)
@@ -104,64 +102,58 @@ int main(int argc, char* argv[]) {
 		printf("\nPasta Backup: %s\n", nome_pasta);
 
 
-
-
 		//cria ficheiro __bckpinfo__
 		char infoPath[PATH_MAX];
-		//if((strlen(argv[2])-1)=='/')
-		//	sprintf(infoPath, "%s%s/%s", argv[2],nome_pasta, "__bckpinfo__");
-		//else
 		sprintf(infoPath, "%s/%s/%s", argv[2],nome_pasta, "__bckpinfo__");
 
-		int fd_info;
-		if((fd_info=open(infoPath, O_WRONLY | O_CREAT | O_EXCL | O_APPEND, 0644))==-1) {
-			perror(infoPath);
-			exit(1); //TODO verificar estado de term
-		}
+		//		int fd_info;
+		//		if((fd_info=open(infoPath, O_WRONLY | O_CREAT | O_EXCL | O_APPEND, 0644))==-1) {
+		//			perror(infoPath);
+		//			exit(1); //TODO verificar estado de term
+		//		}
+		FILE *fd_info = fopen(infoPath, "w");
 
 		printf("__bckpinfo__ created!\n");
 
-
-
-
-		struct dirent *direntp; 
+		struct dirent *direntp;
 		struct stat stat_buf;
 		chdir(dir1);
 
 		while ((direntp = readdir(d1)) != NULL) 
-		{ 
+		{
 			if (stat(direntp->d_name, &stat_buf)==-1)	{
-				perror("stat ERROR");
+				perror("stat ERROR!\n");
 				exit(3);
 			}
 
 			//verifica se se trata de um ficheiro regular
 			if (S_ISREG(stat_buf.st_mode)) {
 
-				//cria e escreve em __bckpinfo__
-				/*teste erro*///write(fd_info, direntp->d_name, sizeof(dirent->d_name)); //falta /n?
-				/*teste erro*///write(infoPath, stat_buf.st_mtime, sizeof(stat_buf.st_mtime));
-				/*teste erro*///write(infoPath, dirPath, sizeof(dirPath));
-				pid_t pid;
-				pid = fork();
+				pid_t pid = fork();
 				if(pid==0) {
 					fileCopy(direntp->d_name, nome_pasta);
 					printf("Backup: %s\n",direntp->d_name);
 					exit(0); // SAÍDA PODE SER ASSIM?
 				}
-				else
-				{
-					int statloc;
-					wait(&statloc);
-					//QUESTION pai deve esperar?
-					//waitpid(pid, &statloc, WNOHANG); //QUESTION usar pid ou -1????
-					if(statloc==-1) {
-						printf("Processo de copia terminou com erro!");
-					}
+				else {
+					//escreve em __bckpinfo__
+					char *nl="\n";
+					char *nm= direntp->d_name;
+					char *mtime= ctime(&stat_buf.st_mtime);
+					fwrite(nm, sizeof(char), sizeof(nm)+1, fd_info); //escreve nome do ficheiro
+					fputs(nl, fd_info);
+					fputs(mtime,fd_info); //escreve data da ultima modificaçãos
+					fputs(nome_pasta, fd_info); //escreve nome da pasta
+					fputs(nl, fd_info);
+					fflush(fd_info);
 
+					int statloc; //QUESTION pai deve esperar?
+					wait(&statloc); //waitpid(pid, &statloc, WNOHANG); //QUESTION usar pid ou -1????
+					if(statloc==-1) printf("Processo de copia terminou com erro!\n");
 				}
 			}
 		}
+		fclose(fd_info);
 		closedir(d1);
 		sleep(dt);
 	}
