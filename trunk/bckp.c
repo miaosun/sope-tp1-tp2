@@ -110,12 +110,19 @@ int main(int argc, char* argv[]) {
 		//			exit(1); //TODO verificar estado de term
 		//		}
 		FILE *fd_info = fopen(infoPath, "w");
-
+		file *fd_info_ant;
 		printf("__bckpinfo__ created!\n");
+
+		int FirstIteration = 1;
+		int auxAlteracao = 0;
 
 		struct dirent *direntp;
 		struct stat stat_buf;
-		chdir(dir1);
+
+		if(chdir(dir1)==-1) {
+			perror(dir1);
+			exit(4);
+		}
 
 		while ((direntp = readdir(d1)) != NULL) 
 		{
@@ -127,6 +134,20 @@ int main(int argc, char* argv[]) {
 			//verifica se se trata de um ficheiro regular
 			if (S_ISREG(stat_buf.st_mode)) {
 
+				char *nm= direntp->d_name;
+				int auxEncontra = 0;
+				char *a1=NULL;
+				char *a2=NULL;
+				char *a3=NULL;
+				ssz
+				size_t len=0;
+				
+				while() {
+					getline();
+					getline();
+					getline();
+				}
+				
 				pid_t pid = fork();
 				if(pid==0) {
 					fileCopy(direntp->d_name, nome_pasta);
@@ -136,15 +157,15 @@ int main(int argc, char* argv[]) {
 				else {
 					//escreve em __bckpinfo__
 					char *nl="\n";
-					char *nm= direntp->d_name;
+					
 					printf("%s\n",nm);
 					char *mtime= ctime(&stat_buf.st_mtime);
 					fwrite(nm, sizeof(char), strlen(nm), fd_info); //escreve nome do ficheiro
-					fputs(nl, fd_info);
+					fputs(nl, fd_info); //QUESTION
 					fputs(mtime,fd_info); //escreve data da ultima modificaçãos
 					fputs(nome_pasta, fd_info); //escreve nome da pasta
 					fputs(nl, fd_info);
-					fflush(fd_info);
+					fflush(fd_info); //QUESTION
 
 					int statloc; //QUESTION pai deve esperar?
 					wait(&statloc); //waitpid(pid, &statloc, WNOHANG); //QUESTION usar pid ou -1????
