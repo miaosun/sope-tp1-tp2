@@ -41,7 +41,9 @@ int main(int argc, char* argv[]) {
 				{
 					printf("\t%s\n", namelist[i]->d_name);
 				}
+				free(namelist[i]);
 			}
+			free(namelist);
 		}
 		closedir(d2);
 	}
@@ -67,68 +69,67 @@ int main(int argc, char* argv[]) {
 
 	char op_dir[BUFFER_SIZE];
 	printf("\nWhich restore point (time) ?\n");
-	scanf("%s", op_dir);
+	
 
-	for(i=0; i<n; i++)
+	int b = 1;
+	while(b!=0)
 	{
-		if(strcmp(namelist[i]->d_name, op_dir) == 0)
-		{			
-			char path1[PATH_MAX], pathorg[PATH_MAX], pathdes[PATH_MAX];
-			sprintf(path1, "%s/%s", dir2,op_dir);			
-			chdir(path1);
+		scanf("%s", op_dir);
+		char path1[PATH_MAX];
+		sprintf(path1, "%s/%s", dir2,op_dir);			
+		b=chdir(path1);
+		if(b!=0)
+			printf("Restore point doesn't exist, try again!\n");
+	}
+	
+	FILE *fp;
+	char *filename = NULL;
+	char *datemodi = NULL;
+	char *pathname = NULL;
+	ssize_t read;
+	size_t len = 0;
+	char pathorg[PATH_MAX], pathdes[PATH_MAX];
+	
+	fp = fopen("__bckpinfo__", "r");
 
-			FILE *fp;
-			char *filename = NULL;
-			char *datemodi = NULL;
-			char *pathname = NULL;
-			ssize_t read;
-			size_t len = 0;
-			
-			fp = fopen("__bckpinfo__", "r");
-			
-			if (fp == NULL)
-				exit(EXIT_FAILURE);
-
-			while(!feof(fp))
-			{			
-				if((read = getline(&filename, &len, fp)) == -1) {
-					perror("__bckpinfo__-filename");
-				}
-				if (filename[read-1] == '\n')
-					filename[read-1] = '\0';
-				if((getline(&datemodi, &len, fp)) == -1) {
-					perror("__bckpinfo__-datemodif");
-				}
-				if((read = getline(&pathname, &len, fp)) == -1) {
-					perror("__bckpinfo__-pathname");
-				}
-				if (pathname[read-1] == '\n')
-					pathname[read-1] = '\0';
-
-				sprintf(pathorg, "%s/%s/%s", dir2, pathname, filename);
-				sprintf(pathdes, "%s/%s", dir3, filename);
-
-				pid_t pid;
-				pid = fork();
-				if(pid==0) 
-				{
-					printf("Restore: %s\n",filename);
-					fileCopy(pathorg, pathdes);				
-					exit(0); 
-				}
-				else
-				{
-					int statloc;
-					wait(&statloc);
-					if(statloc==-1)
-						printf("Processo de copia terminou com erro!");
-				}
-			}
+	if (fp == NULL)
+		exit(EXIT_FAILURE);
+	
+	while(!feof(fp))
+	{			
+		if((read = getline(&filename, &len, fp)) == -1) {
 			break;
 		}
+		if (filename[read-1] == '\n')
+			filename[read-1] = '\0';
+		if((getline(&datemodi, &len, fp)) == -1) {
+			perror("__bckpinfo__-datemodif");
+		}
+		if((read = getline(&pathname, &len, fp)) == -1) {
+			perror("__bckpinfo__-pathname");
+		}
+		if (pathname[read-1] == '\n')
+			pathname[read-1] = '\0';
+		
+		sprintf(pathorg, "%s/%s/%s", dir2, pathname, filename);
+		sprintf(pathdes, "%s/%s", dir3, filename);
+
+		pid_t pid;
+		pid = fork();
+		if(pid==0) 
+		{
+			printf("Restore: %s\n",filename);
+			fileCopy(pathorg, pathdes);				
+			exit(0); 
+		}
+		else
+		{
+			int statloc;
+			wait(&statloc);
+			if(statloc==-1)
+				printf("Processo de copia terminou com erro!");
+		}
 	}
-	free(namelist);
-	closedir(d3);
 
 	printf("\nFinishing!\n\n");
 	exit(0);
