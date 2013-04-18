@@ -36,3 +36,4 @@ void fileCopy(char* path1, char* path2) {
 			close(fd2); 
 
 }
+

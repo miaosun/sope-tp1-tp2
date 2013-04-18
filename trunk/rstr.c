@@ -94,7 +94,8 @@ int main(int argc, char* argv[]) {
 
 	if (fp == NULL)
 		exit(EXIT_FAILURE);
-	
+
+	int n_filhos = 0;
 	while(!feof(fp))
 	{			
 		if((read = getline(&filename, &len, fp)) == -1) {
@@ -116,6 +117,7 @@ int main(int argc, char* argv[]) {
 
 		pid_t pid;
 		pid = fork();
+		n_filhos++;
 		if(pid==0) 
 		{
 			printf("Restore: %s\n",filename);
@@ -124,10 +126,16 @@ int main(int argc, char* argv[]) {
 		}
 		else
 		{
-			int statloc;
-			wait(&statloc);
-			if(statloc==-1)
-				printf("Processo de copia terminou com erro!");
+			while(n_filhos)
+			{
+				int statloc;
+				pid_t p = waitpid(-1, &statloc, WNOHANG);
+				if(p > 0)
+					n_filhos--;
+				if(p < 0 || statloc==-1)
+					printf("Processo de copia terminou com erro!");
+			}
+
 		}
 	}
 
