@@ -126,7 +126,8 @@ int main(int argc, char* argv[]) {
 		}
 		else
 		{
-			while(n_filhos)
+			int i = n_filhos;
+			while(i--)
 			{
 				int statloc;
 				pid_t p = waitpid(-1, &statloc, WNOHANG);
@@ -137,6 +138,15 @@ int main(int argc, char* argv[]) {
 			}
 
 		}
+	}
+	free(filename);
+	free(datemodi);
+	free(pathname);
+
+	while(n_filhos--)
+	{
+		int statloc;
+		wait(&statloc);
 	}
 
 	printf("\nFinishing!\n\n");
