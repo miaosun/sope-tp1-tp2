@@ -85,8 +85,6 @@ int main(int argc, char* argv[]) {
 		//cria nome da pasta de backup com base na data&hora actual
 		strftime(nome_pasta,80,"%Y_%m_%d_%H_%M_%S", timeinfo);
 
-
-
 		//OU USAR SPRINTF!!!
 		if(chdir(dir2)==-1) {
 			perror(dir2);
@@ -139,8 +137,9 @@ int main(int argc, char* argv[]) {
 					//escreve em __bckpinfo__
 					char *nl="\n";
 					char *nm= direntp->d_name;
+					printf("%s\n",nm);
 					char *mtime= ctime(&stat_buf.st_mtime);
-					fwrite(nm, sizeof(char), sizeof(nm)+1, fd_info); //escreve nome do ficheiro
+					fwrite(nm, sizeof(char), strlen(nm), fd_info); //escreve nome do ficheiro
 					fputs(nl, fd_info);
 					fputs(mtime,fd_info); //escreve data da ultima modificaçãos
 					fputs(nome_pasta, fd_info); //escreve nome da pasta
