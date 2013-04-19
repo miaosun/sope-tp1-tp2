@@ -66,8 +66,13 @@ int main(int argc, char* argv[]) {
 		exit(2); 
 	}
 
+	FILE *infoFileAnt=NULL;
 
-	while(1) {
+	int FirstIteration = 1; //TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	int auxAlteracao = 0;
+	int nExistingChilds = 0;
+
+	while(1) { //TODO !RECEIVEDSIGUSR1 ?
 		//abre directório (d1) a ser monitorizado
 		if ((d1 = opendir(dir1)) == NULL) { 
 			perror(dir1);
@@ -107,14 +112,11 @@ int main(int argc, char* argv[]) {
 		//		int fd_info;
 		//		if((fd_info=open(infoPath, O_WRONLY | O_CREAT | O_EXCL | O_APPEND, 0644))==-1) {
 		//			perror(infoPath);
-		//			exit(1); //TODO verificar estado de term
+		//			exit(1); //TODO verificar estados de term
 		//		}
-		FILE *fd_info = fopen(infoPath, "w");
-		file *fd_info_ant;
+		FILE *infoFile = fopen(infoPath, "w");
 		printf("__bckpinfo__ created!\n");
 
-		int FirstIteration = 1;
-		int auxAlteracao = 0;
 
 		struct dirent *direntp;
 		struct stat stat_buf;
@@ -131,51 +133,132 @@ int main(int argc, char* argv[]) {
 				exit(3);
 			}
 
-			//verifica se se trata de um ficheiro regular
-			if (S_ISREG(stat_buf.st_mode)) {
 
+			//verifica se se trata de um ficheiro regular
+			if (S_ISREG(stat_buf.st_mode))
+			{
 				char *nm= direntp->d_name;
+				char *mtime= ctime(&stat_buf.st_mtime);
 				int auxEncontra = 0;
 				char *a1=NULL;
 				char *a2=NULL;
 				char *a3=NULL;
-				ssz
-				size_t len=0;
-				
-				while() {
-					getline();
-					getline();
-					getline();
-				}
-				
-				pid_t pid = fork();
-				if(pid==0) {
-					fileCopy(direntp->d_name, nome_pasta);
-					printf("Backup: %s\n",direntp->d_name);
-					exit(0); // SAÍDA PODE SER ASSIM?
-				}
-				else {
-					//escreve em __bckpinfo__
-					char *nl="\n";
-					
-					printf("%s\n",nm);
-					char *mtime= ctime(&stat_buf.st_mtime);
-					fwrite(nm, sizeof(char), strlen(nm), fd_info); //escreve nome do ficheiro
-					fputs(nl, fd_info); //QUESTION
-					fputs(mtime,fd_info); //escreve data da ultima modificaçãos
-					fputs(nome_pasta, fd_info); //escreve nome da pasta
-					fputs(nl, fd_info);
-					fflush(fd_info); //QUESTION
+				ssize_t read;
+				size_t len = 0;
 
-					int statloc; //QUESTION pai deve esperar?
-					wait(&statloc); //waitpid(pid, &statloc, WNOHANG); //QUESTION usar pid ou -1????
-					if(statloc==-1) printf("Processo de copia terminou com erro!\n");
+				if(FirstIteration==1) {
+					//copia
+					//cria bkcpinfo
+					auxAlteracao=1;
+				}
+				else
+				{
+
+					while(!feof(infoFileAnt))
+					{
+						if((read = getline(&a1, &len, infoFileAnt)) == -1)
+							//perror("__bckpinfo__-filename");
+							break;
+						if (a1[read-1] == '\n')
+							a1[read-1] = '\0';
+
+						if((read = getline(&a2, &len, infoFileAnt)) == -1) 
+							perror("__bckpinfo__-datemodif");
+						if (a2[read-1] == '\n')
+							a2[read-1] = '\0';
+
+						if((read = getline(&a3, &len, infoFileAnt)) == -1) 
+							perror("__bckpinfo__-pathname");
+						if (a3[read-1] == '\n')
+							a3[read-1] = '\0';
+
+						if(strcmp(a1,nm)==0) {
+							auxEncontra=1;
+							break;
+						}
+					}
+
+					if(auxEncontra==0) {
+						//copia ficheiro!
+
+						//escreve em __bckpinfo__
+						fprintf(infoFile, "%s\n", nm);
+						fprintf(infoFile, "%s\n", mtime);
+						fprintf(infoFile, "%s\n", nome_pasta);
+						auxAlteracao=1;
+					}
+					else
+					{
+						if(strcmp(a2,mtime)!=0)
+						{
+							//copia ficheiro!
+							//escreve em __bckpinfo__
+							fprintf(infoFile, "%s\n",nm);
+							fprintf(infoFile, "%s\n",mtime);
+							fprintf(infoFile, "%s\n",nome_pasta);
+							auxAlteracao=1;
+						}
+						else
+						{
+							//escreve em __bckpinfo__
+							fprintf(infoFile, "%s\n",nm);
+							fprintf(infoFile, "%s\n",a2);
+							fprintf(infoFile, "%s\n",a3);
+						}
+					}
+
+					//liberta memória alocada pelos getline's
+					free(a1); free(a2); free(a3);
+					//apontador do ficheiro é posto a apontar para o inicio do ficheiro
+					rewind(infoFileAnt);
+
+
+					int i=nExistingChilds; //TODO incrementar em forks!!!
+					while(i--) {
+						if(waitpid(-1,NULL,WNOHANG) >0)
+							nExistingChilds--;
+					}
 				}
 			}
+			infoFileAnt = freopen(NULL,"r",infoFile);
+			//fclose(infoFile); //TODO NECESSARIO?
+
+
+			if(auxAlteracao==0) {
+				//apaga pasta
+				if((fork())==0){
+					execlp("rm","rm","-R",nome_pasta,NULL);
+					//teste? TODO
+				}
+				else {
+					//waitpid
+				}
+			}
+
+
+
+			//			pid_t pid = fork();
+			//			if(pid==0) {
+			//				fileCopy(direntp->d_name, nome_pasta);
+			//				printf("Backup: %s\n",direntp->d_name);
+			//				exit(EXIT_SUCCESS);
+			//			}
+			//			else {
+			//
+			//				int statloc; //QUESTION pai deve esperar?
+			//				wait(&statloc); //waitpid(pid, &statloc, WNOHANG); //QUESTION usar pid ou -1????
+			//				if(statloc==-1) printf("Processo de copia terminou com erro!\n");
+			//			}
+
 		}
-		fclose(fd_info);
+
 		closedir(d1);
 		sleep(dt);
+	}
+
+	while(nExistingChilds) {
+		if(waitpid(-1,NULL,WNOHANG) >0)
+			nExistingChilds--;
 	}
 
 	printf("Finishing!\n\n");
