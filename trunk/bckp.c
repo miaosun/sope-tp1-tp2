@@ -12,6 +12,8 @@ int receivedSIGUSR1=0;
 //   char* modtime;
 //   char* dir;
 //};
+//struct fileinfo * fileinfo;
+//t=(aluno *)malloc(sizeof(aluno));
 
 // cria pasta backup incremental (YY_MM_DD_HH_MM_SS)
 void createBackupFoldername(char* subdir) {
@@ -104,25 +106,24 @@ void sigusr_handler(int signo)
 
 int main(int argc, char* argv[]) {
 
-	struct sigaction action; 
-	action.sa_handler = sigusr_handler; 
-	sigemptyset(&action.sa_mask); 
-	action.sa_flags = 0;
-
-	if (sigaction(SIGUSR1,&action,NULL) < 0) 
-	{ 
-		fprintf(stderr,"Unable to install SIGUSR1 handler\n"); 
-		exit(1); 
+	//informação de utilização, caso utilizador não insira todos os parâmetros
+	if(argc!=4) {
+		printf("usage: %s d1 d2 dt &\n",argv[0]);
+		exit(2);
 	}
 
 	dir1 = argv[1]; //directório 1 (a fazer backup)
 	dir2 = argv[2]; //directorio 2 (destino backup)
 	dt = atoi(argv[3]); //dt = intervalo de tempo entre backups
 
-	//informação de utilização, caso utilizador não insira todos os parâmetros
-	if(argc!=4){
-		printf("usage: %s d1 d2 dt &\n",argv[0]);
-		exit(2);
+	struct sigaction action; 
+	action.sa_handler = sigusr_handler; 
+	sigemptyset(&action.sa_mask); 
+	action.sa_flags = 0;
+
+	if (sigaction(SIGUSR1,&action,NULL) < 0) { 
+		fprintf(stderr,"Unable to install SIGUSR1 handler\n");
+		exit(1);
 	}
 
 	//cria directório de backup (d2)
@@ -131,9 +132,9 @@ int main(int argc, char* argv[]) {
 		exit(3);
 	}
 	//abre directório de backup (d2)
-	if ((d2 = opendir(dir2)) == NULL) { 
+	if ((d2 = opendir(dir2)) == NULL) {
 		perror(dir2);
-		exit(4); 
+		exit(4);
 	}
 
 	FILE *bckpinfoAnt=NULL; //apontador para ficheiro __bckpinfo__ do backup incremental anterior
@@ -165,7 +166,6 @@ int main(int argc, char* argv[]) {
 			perror(subdirectory);
 			exit(7);
 		}
-
 
 		char bckpinfoPath[PATH_MAX];
 		sprintf(bckpinfoPath, "%s/%s/%s", argv[2],subdirectory, "__bckpinfo__");
@@ -242,13 +242,6 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
-		//recebe estados de terminação dos filhos já terminados
-		int i=nExistingChilds;
-		while(i--) {
-			if(waitpid(-1,NULL,WNOHANG) >0)
-				nExistingChilds--;
-		}
-
 		//verifica se existiu alguma alteração, caso não tenha: apaga directorio
 		if(auxAlteracao==0) {
 			nExistingChilds++;
@@ -263,6 +256,13 @@ int main(int argc, char* argv[]) {
 			//se houve alterações, guarda apontador para ficheiro __bckpinfo__ a ser usado no próximo ciclo
 			fclose(bckpinfo);
 			bckpinfoAnt = fopen(bckpinfoPath, "r");
+		}
+
+		//recebe estados de terminação dos filhos já terminados
+		int i=nExistingChilds;
+		while(i--) {
+			if(waitpid(-1,NULL,WNOHANG) >0)
+				nExistingChilds--;
 		}
 
 		FirstIteration=0;
@@ -284,11 +284,13 @@ int main(int argc, char* argv[]) {
 	//evitando assim alterações indevidas que poderiam pôr em causa a correcta recuperação dos ficheiros
 	chmod(dir2, S_IXUSR|S_IXGRP|S_IXOTH | S_IRUSR|S_IRGRP|S_IROTH);
 
+	fclose(bckpinfoAnt);
 	if((closedir(d2))==-1){
 		perror(dir2);
 		exit(11);
 	}
 
+	getchar();
 	printf("Finishing Backup...\n\n");
 	return 0;
 }
