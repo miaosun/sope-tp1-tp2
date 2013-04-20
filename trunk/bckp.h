@@ -12,6 +12,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <wait.h>
+#include <signal.h>
 
 
 #define BUFFER_SIZE 1024
