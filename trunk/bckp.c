@@ -1,11 +1,11 @@
 #include "bckp.h"
 
-
 char* dir1;
 char* dir2;
 DIR *d1, *d2;
 int dt;
 int nExistingChilds = 0;
+int receivedSIGUSR1=0;
 
 // cria pasta backup incremental (YY_MM_DD_HH_MM_SS)
 void createBackupFoldername(char* subdir) {
@@ -26,14 +26,14 @@ int read_bckpinfo(char **a1, char **a2, char **a3, FILE *bckpinfoAnt)
 		perror("__bckpinfo__-filename");
 		return -1;
 	}
-	
+
 	if (((*a1)[read-1]) == '\n')
 		((*a1)[read-1]) = '\0';
 
 	if((read = getline(a2, &len, bckpinfoAnt)) == -1) 
 		perror("__bckpinfo__-datemodif");
-//	if (((*a2)[read-1]) == '\n')
-//		((*a2)[read-1]) = '\0';
+	//	if (((*a2)[read-1]) == '\n')
+	//		((*a2)[read-1]) = '\0';
 
 	if((read = getline(a3, &len, bckpinfoAnt)) == -1) 
 		perror("__bckpinfo__-pathname");
@@ -90,8 +90,24 @@ void fileCopy(char* filename, char* subdir) {
 	}
 }
 
+void sigusr_handler(int signo)
+{
+	printf("In SIGUSR1 handler ...\n");
+	receivedSIGUSR1=1;
+}
 
 int main(int argc, char* argv[]) {
+
+	struct sigaction action; 
+	action.sa_handler = sigusr_handler; 
+	sigemptyset(&action.sa_mask); 
+	action.sa_flags = 0;
+
+	if (sigaction(SIGUSR1,&action,NULL) < 0) 
+	{ 
+		fprintf(stderr,"Unable to install SIGUSR1 handler\n"); 
+		exit(1); 
+	}
 
 	dir1 = argv[1]; //directório 1 (a fazer backup)
 	dir2 = argv[2]; //directorio 2 (destino backup)
@@ -114,17 +130,16 @@ int main(int argc, char* argv[]) {
 		exit(2); 
 	}
 
-	FILE *bckpinfoAnt=NULL;
-	int FirstIteration = 1;
+	FILE *bckpinfoAnt=NULL; //apontador para ficheiro __bckpinfo__ do backup incremental anterior
+	int FirstIteration = 1; //variavel auxiliar indicadora se o processo de backup se encontra na 1ª iteração (full backup)
 
-	//altera directorio corrente para dir1
+	//altera working directory para dir1
 	if((chdir(dir1))==-1) {
 		perror(dir1);
 		exit(4);
 	}
 
-	while(1) { //TODO !RECEIVEDSIGUSR1 ?
-
+	while(!receivedSIGUSR1) {
 
 		//abre directório (d1) a ser monitorizado
 		if ((d1 = opendir(dir1)) == NULL) { 
@@ -174,9 +189,7 @@ int main(int argc, char* argv[]) {
 				char *mtime= ctime(&stat_buf.st_mtime);
 
 				if(FirstIteration) {
-					//copia!
-//					printf("first iteration\n");
-					fileCopy(filename, subdirectory);
+					fileCopy(filename, subdirectory); //lança processo de cópia
 
 					writeTobckpinfo(bckpinfo, filename, mtime, subdirectory); //escreve bkcpinfo
 					auxAlteracao=1;
@@ -188,15 +201,14 @@ int main(int argc, char* argv[]) {
 					char *a3=NULL;
 
 					int auxEncontra = 0; //variavel auxiliar para guardar informação se ficheiro já existia
-//					printf("2nd iteration\n");
+
 					// enquanto não ler tdo o ficheiro ou encontrar ficheiro com o mesmo nome
 					while(1)
 					{
 						if((read_bckpinfo(&a1,&a2,&a3, bckpinfoAnt))==-1) {
-							printf("ERRO\n");
 							break;
 						}
-//						printf("%s - %s\n",a1, filename);
+
 						if(strcmp(a1,filename)==0) {
 							auxEncontra=1;
 							break;
@@ -205,29 +217,22 @@ int main(int argc, char* argv[]) {
 
 					if(auxEncontra==0) { //ficheiro não existia no backup anterior
 						printf("ficheiro n existia\n");
-						//copia ficheiro!
-						fileCopy(filename, subdirectory);
-						//escreve em __bckpinfo__
-						writeTobckpinfo(bckpinfo, filename, mtime, subdirectory);
+						fileCopy(filename, subdirectory); //lança processo de cópia
+						writeTobckpinfo(bckpinfo, filename, mtime, subdirectory); //escreve em __bckpinfo__
 						auxAlteracao=1;
 					}
 					else
 					{
 						if(strcmp(a2,mtime)!=0) { //ficheiro já existia mas foi modificado
 							printf("ficheiro modificado\n");
-//							printf("a2 - %s\n", a2);
-//							printf("mtime - %s\n", mtime);
-							//copia ficheiro!
-							fileCopy(filename, subdirectory);
-							//escreve em __bckpinfo__
-							writeTobckpinfo(bckpinfo, filename, mtime, subdirectory);
+							fileCopy(filename, subdirectory); //lança processo de cópia
+							writeTobckpinfo(bckpinfo, filename, mtime, subdirectory); //escreve em __bckpinfo__
 							auxAlteracao=1;
 						}
 						else
 						{	//ficheiro já existia e não foi alterado
-							//escreve em __bckpinfo__
-							printf("ficheiro inalterado - no backued up\n");
-							writeTobckpinfo(bckpinfo, filename, a2, a3);
+							printf("ficheiro inalterado - no backed up\n");
+							writeTobckpinfo(bckpinfo, filename, a2, a3); //escreve em __bckpinfo__
 						}
 					}
 
@@ -249,15 +254,11 @@ int main(int argc, char* argv[]) {
 
 		//verifica se existiu alguma alteração, caso não tenha apaga directorio
 		if(auxAlteracao==0) {
-			//apaga pasta
+			nExistingChilds++;
 			printf("vai fazer rm!\n");
 			if((fork())==0){
 				execlp("rm","rm","-R",subdirPath,NULL);
 				//teste? TODO
-			}
-			else {
-				if(waitpid(-1,NULL,WNOHANG) != 0)
-					nExistingChilds++;
 			}
 		}
 		else {
@@ -269,23 +270,26 @@ int main(int argc, char* argv[]) {
 		FirstIteration=0;
 		printf("sleep\n\n\n");
 		sleep(dt);
-		//}
 
-		if((closedir(d1))==-1){ //TODO TESTE ERRO? same for chdir
+		if((closedir(d1))==-1){
 			perror(dir1);
 			exit(1);
 		}
-	}//
+	}
 
 	//espera que todos os processos filho terminem
 	while(nExistingChilds--) {
 		wait(NULL);
 	}
 
-	//altera permissoes do directorio de backup apenas para leitura, evitando assim alterações indevidas que poderiam pôr em causa a correcta recuperação dos ficheiros
-	chmod(dir2, S_IRUSR|S_IRGRP|S_IROTH);
+	//altera permissoes do directorio de backup apenas para leitura e pesquisa,
+	//evitando assim alterações indevidas que poderiam pôr em causa a correcta recuperação dos ficheiros
+	chmod(dir2, S_IXUSR|S_IXGRP|S_IXOTH | S_IRUSR|S_IRGRP|S_IROTH);
 
-	printf("Finishing!\n\n");
+	if((closedir(d2))==-1){
+		perror(dir2);
+		exit(1);
+	}
+	printf("Finishing Backup!\n\n");
 	return 0;
-
 }
