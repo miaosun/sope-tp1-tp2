@@ -7,6 +7,12 @@ int dt;
 int nExistingChilds = 0;
 int receivedSIGUSR1=0;
 
+//struct fileinfo {
+//   char* name;
+//   char* modtime;
+//   char* dir;
+//};
+
 // cria pasta backup incremental (YY_MM_DD_HH_MM_SS)
 void createBackupFoldername(char* subdir) {
 	time_t rawtime;
@@ -64,7 +70,7 @@ void fileCopy(char* filename, char* subdir) {
 		fd1 = open(filename, O_RDONLY); 
 		if (fd1 == -1) {
 			perror(filename); 
-			exit(5); 
+			exit(12); 
 		}
 
 		char newfilePath[PATH_MAX];
@@ -74,14 +80,14 @@ void fileCopy(char* filename, char* subdir) {
 		if (fd2 == -1) {
 			perror(newfilePath);
 			close(fd1);
-			exit(5);
+			exit(13);
 		} 
 		while ((nr = read(fd1, buffer, BUFFER_SIZE)) > 0) 
 			if ((nw = write(fd2, buffer, nr)) <= 0 || nw != nr) { 
 				perror(newfilePath);
 				close(fd1);
 				close(fd2);
-				exit(6); 
+				exit(14); 
 			}
 		close(fd1); 
 		close(fd2);
@@ -116,7 +122,7 @@ int main(int argc, char* argv[]) {
 	//informação de utilização, caso utilizador não insira todos os parâmetros
 	if(argc!=4){
 		printf("usage: %s d1 d2 dt &\n",argv[0]);
-		exit(1);
+		exit(2);
 	}
 
 	//cria directório de backup (d2)
@@ -127,7 +133,7 @@ int main(int argc, char* argv[]) {
 	//abre directório de backup (d2)
 	if ((d2 = opendir(dir2)) == NULL) { 
 		perror(dir2);
-		exit(2); 
+		exit(4); 
 	}
 
 	FILE *bckpinfoAnt=NULL; //apontador para ficheiro __bckpinfo__ do backup incremental anterior
@@ -136,7 +142,7 @@ int main(int argc, char* argv[]) {
 	//altera working directory para dir1
 	if((chdir(dir1))==-1) {
 		perror(dir1);
-		exit(4);
+		exit(5);
 	}
 
 	while(!receivedSIGUSR1) {
@@ -144,7 +150,7 @@ int main(int argc, char* argv[]) {
 		//abre directório (d1) a ser monitorizado
 		if ((d1 = opendir(dir1)) == NULL) { 
 			perror(dir1);
-			exit(2); 
+			exit(6); 
 		}
 
 		int auxAlteracao = 0;
@@ -157,7 +163,7 @@ int main(int argc, char* argv[]) {
 		sprintf(subdirPath, "%s/%s",dir2,subdirectory);
 		if((mkdir(subdirPath, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH | EEXIST))==-1) {
 			perror(subdirectory);
-			exit(4);
+			exit(7);
 		}
 
 
@@ -173,7 +179,7 @@ int main(int argc, char* argv[]) {
 		{
 			if (stat(direntp->d_name, &stat_buf)==-1)	{
 				perror("stat ERROR!\n");
-				exit(3);
+				exit(8);
 			}
 
 			if (S_ISREG(stat_buf.st_mode)) //verifica se se trata de um ficheiro regular
@@ -250,7 +256,7 @@ int main(int argc, char* argv[]) {
 			if((fork())==0){
 				execlp("rm","rm","-R",subdirPath,NULL);
 				printf("Command 'rm' not executed!\n");
-				exit(1);
+				exit(9);
 			}
 		}
 		else {
@@ -265,7 +271,7 @@ int main(int argc, char* argv[]) {
 
 		if((closedir(d1))==-1){
 			perror(dir1);
-			exit(1);
+			exit(10);
 		}
 	}
 
@@ -280,7 +286,7 @@ int main(int argc, char* argv[]) {
 
 	if((closedir(d2))==-1){
 		perror(dir2);
-		exit(1);
+		exit(11);
 	}
 
 	printf("Finishing Backup...\n\n");
