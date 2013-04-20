@@ -27,7 +27,7 @@ int read_bckpinfo(char **a1, char **a2, char **a3, FILE *bckpinfoAnt);
 void writeToInfoFile(FILE* file, char* nm, char* mtime, char* subdir);
 
 //funcao que efectua a copia (backup) de um ficheiro de nome "file_name" para a pasta "nome_pasta"
-void fileCopy(char* file_name, char* nome_pasta);
+void fileCopy(char* filename, char* subdir);
 
 
 #endif
