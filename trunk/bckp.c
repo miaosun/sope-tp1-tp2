@@ -92,7 +92,7 @@ void fileCopy(char* filename, char* subdir) {
 
 void sigusr_handler(int signo)
 {
-	printf("In SIGUSR1 handler ...\n");
+	printf("SIGUSR1 Received!\n");
 	receivedSIGUSR1=1;
 }
 
@@ -147,9 +147,6 @@ int main(int argc, char* argv[]) {
 			exit(2); 
 		}
 
-
-		//while(1) { //TODO !RECEIVEDSIGUSR1 ?
-
 		int auxAlteracao = 0;
 
 		char subdirectory[20];
@@ -157,25 +154,21 @@ int main(int argc, char* argv[]) {
 		printf("\nPasta Backup: %s\n", subdirectory);
 
 		char subdirPath[PATH_MAX];
-		sprintf(subdirPath, "%s/%s", argv[2],subdirectory);
-
+		sprintf(subdirPath, "%s/%s",dir2,subdirectory);
 		if((mkdir(subdirPath, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH | EEXIST))==-1) {
 			perror(subdirectory);
 			exit(4);
 		}
 
-		//cria ficheiro __bckpinfo__
+
 		char bckpinfoPath[PATH_MAX];
 		sprintf(bckpinfoPath, "%s/%s/%s", argv[2],subdirectory, "__bckpinfo__");
-
-		FILE *bckpinfo = fopen(bckpinfoPath, "w");
+		FILE *bckpinfo = fopen(bckpinfoPath, "w"); //cria e abre ficheiro __bckpinfo__
 
 		struct dirent *direntp;
 		struct stat stat_buf;
 
-
 		printf("Backing up...\n\n");
-
 		while ((direntp = readdir(d1)) != NULL) 
 		{
 			if (stat(direntp->d_name, &stat_buf)==-1)	{
@@ -236,29 +229,28 @@ int main(int argc, char* argv[]) {
 						}
 					}
 
-					//liberta memória alocada pelos getline's
-					free(a1); free(a2); free(a3);
-					//apontador do ficheiro é posto a apontar para o inicio do ficheiro
-					rewind(bckpinfoAnt);
-				} //no 1st it
-			} //IS_REG
-		} //while direntp
+					free(a1); free(a2); free(a3); //libertada memória alocada pelos getline's
+
+					rewind(bckpinfoAnt); //apontador do ficheiro é posto a apontar para o inicio do ficheiro
+				}
+			}
+		}
 
 		//recebe estados de terminação dos filhos já terminados
-		int i=nExistingChilds; //TODO incrementar em forks!!!
+		int i=nExistingChilds;
 		while(i--) {
 			if(waitpid(-1,NULL,WNOHANG) >0)
 				nExistingChilds--;
 		}
 
-
-		//verifica se existiu alguma alteração, caso não tenha apaga directorio
+		//verifica se existiu alguma alteração, caso não tenha: apaga directorio
 		if(auxAlteracao==0) {
 			nExistingChilds++;
 			printf("vai fazer rm!\n");
 			if((fork())==0){
 				execlp("rm","rm","-R",subdirPath,NULL);
-				//teste? TODO
+				printf("Command 'rm' not executed!\n");
+				exit(1);
 			}
 		}
 		else {
@@ -290,6 +282,7 @@ int main(int argc, char* argv[]) {
 		perror(dir2);
 		exit(1);
 	}
-	printf("Finishing Backup!\n\n");
+
+	printf("Finishing Backup...\n\n");
 	return 0;
 }
