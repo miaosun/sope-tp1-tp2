@@ -1,16 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <dirent.h>
-#include <string.h>
-#include <errno.h>
-#include <unistd.h>
-#include <wait.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <fcntl.h> //open files
-
-#define BUFFER_SIZE 1024
-//#define PATH_MAX 
+#include "rstr.h"
 
 void fileCopy(char* path1, char* path2) {
 
@@ -43,6 +31,31 @@ void fileCopy(char* path1, char* path2) {
 	//fechar os descriptores
 	close(fd1); 
 	close(fd2); 
+}
+
+//lê informação de um ficheiro (nome, data de modificação e pasta backup onde se encontra) do __bckpinfo__
+int read_bckpinfo(char **filename, char **datemodi, char **pathname, FILE *fp)
+{
+	ssize_t read;
+	size_t len=0;
+	//1+3*n (n=0,1,2...) linha: nome do ficheiro
+	if((read = getline(filename, &len, fp)) == -1) {
+		return -1;
+	}
+	if (((*filename)[read-1]) == '\n')
+		((*filename)[read-1]) = '\0';
+	
+	//2+3*n (n=0,1,2...) linha: data da última alteração do ficheiro
+	if((read = getline(datemodi, &len, fp)) == -1) 
+		perror("__bckpinfo__-datemodif");
+
+	//3+3*n (n=0,1,2...) linha: nome da pasta onde está o ficheiro da linha 1+3*n
+	if((read = getline(pathname, &len, fp)) == -1) 
+		perror("__bckpinfo__-pathname");
+	if (((*pathname)[read-1]) == '\n')
+		((*pathname)[read-1]) = '\0';
+
+	return 0;
 }
 
 
@@ -108,7 +121,6 @@ int main(int argc, char* argv[]) {
 			printf("Restore point doesn't exist, try again!\n");
 	}
 
-
 	//cria directório de restore (dir3)
 	if((mkdir(dir3, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH | EEXIST))==-1) {
 		perror(dir3);
@@ -124,8 +136,8 @@ int main(int argc, char* argv[]) {
 	char *filename = NULL;
 	char *datemodi = NULL;
 	char *pathname = NULL;
-	ssize_t read;
-	size_t len = 0;
+	//ssize_t read;
+	//size_t len = 0;
 	char pathorg[PATH_MAX], pathdes[PATH_MAX];
 
 	//abrir o ficheiro __bckpinfo__ em mode de leitura
@@ -136,26 +148,11 @@ int main(int argc, char* argv[]) {
 
 	int n_filhos = 0;
 	while(!feof(fp))
-	{	
-		//1+3*n (n=0,1,2...) linha: nome do ficheiro		
-		if((read = getline(&filename, &len, fp)) == -1) {
+	{
+		//ler do ficheiro fp (__bckpinfo__), buscar filename, datemodi e pathname
+		if((read_bckpinfo(&filename,&datemodi,&pathname, fp))==-1) {
 			break;
 		}
-		if (filename[read-1] == '\n')
-			filename[read-1] = '\0';
-
-		//2+3*n (n=0,1,2...) linha: data da última alteração do ficheiro	
-		if((getline(&datemodi, &len, fp)) == -1) {
-			perror("__bckpinfo__-datemodif");
-		}
-
-		//3+3*n (n=0,1,2...) linha: nome da pasta onde está o ficheiro da linha 1+3*n
-		if((read = getline(&pathname, &len, fp)) == -1) {
-			perror("__bckpinfo__-pathname");
-		}
-		if (pathname[read-1] == '\n')
-			pathname[read-1] = '\0';
-
 		sprintf(pathorg, "%s/%s/%s", dir2, pathname, filename);
 		sprintf(pathdes, "%s/%s", dir3, filename);
 
@@ -167,6 +164,9 @@ int main(int argc, char* argv[]) {
 		{
 			printf("Restore: %s\n",filename);
 			fileCopy(pathorg, pathdes);		//processo de copiar ficheiros		
+			free(filename);  //libertar memoria colocada para filename
+			free(datemodi);  //libertar memoria colocada para datemodi
+			free(pathname);  //libertar memoria colocada para pathname
 			exit(0); 
 		}
 		else
@@ -192,8 +192,8 @@ int main(int argc, char* argv[]) {
 	//receber o estado de terminação de todos os restos filhos não foram apanhados pelo waitpid, para não ficar nenhum processo no estado zombie
 	while(n_filhos--)
 	{
-		int statloc;
-		wait(&statloc);
+		//int statloc;
+		wait(NULL);
 	}
 
 	printf("\nFinishing!\n\n");
