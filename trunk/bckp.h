@@ -17,6 +17,11 @@
 
 #define BUFFER_SIZE 1024
 
+typedef struct {
+	char* name;
+	char* modtime;
+	char* dir;
+} fileinfo;
 
 // cria pasta backup incremental (YY_MM_DD_HH_MM_SS)
 void createBackupFoldername(char* subdir);
