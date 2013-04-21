@@ -7,12 +7,7 @@ int dt;
 int nExistingChilds = 0;
 int receivedSIGUSR1=0;
 
-//struct fileinfo {
-//   char* name;
-//   char* modtime;
-//   char* dir;
-//};
-//struct fileinfo * fileinfo;
+
 //t=(aluno *)malloc(sizeof(aluno));
 
 // cria pasta backup incremental (YY_MM_DD_HH_MM_SS)
@@ -121,6 +116,7 @@ int main(int argc, char* argv[]) {
 	sigemptyset(&action.sa_mask); 
 	action.sa_flags = 0;
 
+	//instala handler para sinal SIGUSR1
 	if (sigaction(SIGUSR1,&action,NULL) < 0) { 
 		fprintf(stderr,"Unable to install SIGUSR1 handler\n");
 		exit(1);
@@ -207,7 +203,6 @@ int main(int argc, char* argv[]) {
 						if((read_bckpinfo(&a1,&a2,&a3, bckpinfoAnt))==-1) {
 							break;
 						}
-
 						if(strcmp(a1,filename)==0) {
 							auxEncontra=1;
 							break;
@@ -248,7 +243,7 @@ int main(int argc, char* argv[]) {
 			printf("vai fazer rm!\n");
 			if((fork())==0){
 				execlp("rm","rm","-R",subdirPath,NULL);
-				printf("Command 'rm' not executed!\n");
+				printf("Erro! Command 'rm' not executed!\n");
 				exit(9);
 			}
 		}
@@ -269,6 +264,7 @@ int main(int argc, char* argv[]) {
 		printf("sleep\n\n\n");
 		sleep(dt);
 
+		//void rewinddir(DIR *dir);
 		if((closedir(d1))==-1){
 			perror(dir1);
 			exit(10);
@@ -290,7 +286,6 @@ int main(int argc, char* argv[]) {
 		exit(11);
 	}
 
-	getchar();
 	printf("Finishing Backup...\n\n");
 	return 0;
 }
