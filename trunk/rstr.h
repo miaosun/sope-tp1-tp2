@@ -7,10 +7,9 @@
 #include <wait.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <fcntl.h> //open files
+#include <fcntl.h>
 
 #define BUFFER_SIZE 1024
-//#define PATH_MAX 
 
 //funcao que efectua a copia de um ficheiro path1 para outro ficheiro path2
 void fileCopy(char* path1, char* path2);

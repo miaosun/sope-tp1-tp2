@@ -1,5 +1,10 @@
 #include "rstr.h"
 
+DIR *d2, *d3;
+char* dir2;
+char* dir3;
+
+
 void fileCopy(char* path1, char* path2) {
 
 	int fd1, fd2, nr, nw;
@@ -18,7 +23,7 @@ void fileCopy(char* path1, char* path2) {
 		close(fd1);
 		exit(5);
 	} 
-	//processo de ler do ficheiro origin de tamanho BUFFER_SIZE de cada vez para escrever no ficheiro destino
+	//processo de ler do ficheiro original de tamanho BUFFER_SIZE de cada vez para escrever no ficheiro destino
 	while ((nr = read(fd1, buffer, BUFFER_SIZE)) > 0) 
 	{
 		if ((nw = write(fd2, buffer, nr)) <= 0 || nw != nr) { 
@@ -28,7 +33,7 @@ void fileCopy(char* path1, char* path2) {
 			exit(6); 
 		}
 	}
-	//fechar os descriptores
+	//fechar os descritores
 	close(fd1); 
 	close(fd2); 
 }
@@ -44,7 +49,7 @@ int read_bckpinfo(char **filename, char **datemodi, char **pathname, FILE *fp)
 	}
 	if (((*filename)[read-1]) == '\n')
 		((*filename)[read-1]) = '\0';
-	
+
 	//2+3*n (n=0,1,2...) linha: data da última alteração do ficheiro
 	if((read = getline(datemodi, &len, fp)) == -1) 
 		perror("__bckpinfo__-datemodif");
@@ -58,11 +63,6 @@ int read_bckpinfo(char **filename, char **datemodi, char **pathname, FILE *fp)
 	return 0;
 }
 
-
-DIR *d2, *d3;
-
-char* dir2;
-char* dir3;
 
 int main(int argc, char* argv[]) {
 
@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
 			printf("List of avaliable restore points\n");
 			for(i=0; i<n; i++)   //imprime todos os restore points
 			{
-				//para não imprir "." e ".."
+				//para não imprimir "." e ".."
 				if((strcmp(namelist[i]->d_name, ".") != 0) && strcmp(namelist[i]->d_name, "..") != 0)
 				{
 					printf("\t%s\n", namelist[i]->d_name);
@@ -160,10 +160,10 @@ int main(int argc, char* argv[]) {
 		pid = fork();
 		n_filhos++;
 		if(pid == -1)
-  		{
-      		fprintf(stderr, "fork error\n");
-      		exit(EXIT_FAILURE);
-   		}
+		{
+			fprintf(stderr, "fork error\n");
+			exit(EXIT_FAILURE);
+		}
 		//processo filho
 		else if(pid==0) 
 		{
@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
 			while(i--)
 			{
 				int statloc;
-				pid_t p = waitpid(-1, &statloc, WNOHANG);  //receber o estado de terminação de qualquer processo filho sem bloquer
+				pid_t p = waitpid(-1, &statloc, WNOHANG);  //receber o estado de terminação de qualquer processo filho sem bloquear
 				if(p > 0)
 					n_filhos--;
 				if(p < 0 || statloc==-1)
@@ -189,12 +189,13 @@ int main(int argc, char* argv[]) {
 
 		}
 	}
-	//libertar memoria alocadas para filename, datemodi e pathname
+	//libertar memoria alocada para filename, datemodi e pathname
 	free(filename);
 	free(datemodi);
 	free(pathname);
 
-	//receber o estado de terminação de todos os restos filhos não foram apanhados pelo waitpid, para não ficar nenhum processo no estado zombie
+	//receber o estado de terminação de todos os restantes filhos que não foram apanhados pelo waitpid,
+	//para não ficar nenhum processo no estado zombie
 	while(n_filhos--)
 		wait(NULL);
 
