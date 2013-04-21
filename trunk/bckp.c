@@ -175,8 +175,10 @@ int main(int argc, char* argv[]) {
 			perror(dir1);
 			exit(5);
 		}
+
 		nfilesAnt=nfiles;
 		nfiles=0;
+
 		while ((direntp = readdir(d1)) != NULL) 
 		{
 			if (stat(direntp->d_name, &stat_buf)==-1)	{
