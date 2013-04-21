@@ -89,7 +89,7 @@ void fileCopy(char* filename, char* subdir) {
 		close(fd1); 
 		close(fd2);
 
-		exit(EXIT_SUCCESS);
+		exit(0);
 	}
 }
 
@@ -136,11 +136,7 @@ int main(int argc, char* argv[]) {
 	FILE *bckpinfoAnt=NULL; //apontador para ficheiro __bckpinfo__ do backup incremental anterior
 	int FirstIteration = 1; //variavel auxiliar indicadora se o processo de backup se encontra na 1ª iteração (full backup)
 
-	//altera working directory para dir1
-	if((chdir(dir1))==-1) {
-		perror(dir1);
-		exit(5);
-	}
+
 
 	while(!receivedSIGUSR1) {
 
@@ -164,13 +160,20 @@ int main(int argc, char* argv[]) {
 		}
 
 		char bckpinfoPath[PATH_MAX];
-		sprintf(bckpinfoPath, "%s/%s/%s", argv[2],subdirectory, "__bckpinfo__");
+		sprintf(bckpinfoPath, "%s/%s/%s", dir2,subdirectory, "__bckpinfo__");
 		FILE *bckpinfo = fopen(bckpinfoPath, "w"); //cria e abre ficheiro __bckpinfo__
 
 		struct dirent *direntp;
 		struct stat stat_buf;
 
 		printf("Backing up...\n\n");
+
+		//altera working directory para dir1
+		if((chdir(dir1))==-1) {
+			perror(dir1);
+			exit(5);
+		}
+
 		while ((direntp = readdir(d1)) != NULL) 
 		{
 			if (stat(direntp->d_name, &stat_buf)==-1)	{
@@ -184,10 +187,12 @@ int main(int argc, char* argv[]) {
 				char *mtime= ctime(&stat_buf.st_mtime);
 
 				if(FirstIteration) {
-					fileCopy(filename, subdirectory); //lança processo de cópia
-
+					fflush(bckpinfo);
 					writeTobckpinfo(bckpinfo, filename, mtime, subdirectory); //escreve bkcpinfo
+					fflush(bckpinfo);
+					fileCopy(filename, subdirectory); //lança processo de cópia
 					auxAlteracao=1;
+					fflush(bckpinfo);
 				}
 				else
 				{
@@ -211,27 +216,29 @@ int main(int argc, char* argv[]) {
 
 					if(auxEncontra==0) { //ficheiro não existia no backup anterior
 						printf("ficheiro n existia\n");
-						fileCopy(filename, subdirectory); //lança processo de cópia
 						writeTobckpinfo(bckpinfo, filename, mtime, subdirectory); //escreve em __bckpinfo__
+						fflush(bckpinfo);
+						fileCopy(filename, subdirectory); //lança processo de cópia
 						auxAlteracao=1;
 					}
 					else
 					{
 						if(strcmp(a2,mtime)!=0) { //ficheiro já existia mas foi modificado
 							printf("ficheiro modificado\n");
-							fileCopy(filename, subdirectory); //lança processo de cópia
 							writeTobckpinfo(bckpinfo, filename, mtime, subdirectory); //escreve em __bckpinfo__
+							fflush(bckpinfo);
+							fileCopy(filename, subdirectory); //lança processo de cópia
 							auxAlteracao=1;
 						}
 						else
 						{	//ficheiro já existia e não foi alterado
 							printf("ficheiro inalterado - no backed up\n");
 							writeTobckpinfo(bckpinfo, filename, a2, a3); //escreve em __bckpinfo__
+							fflush(bckpinfo);
 						}
 					}
 
 					free(a1); free(a2); free(a3); //libertada memória alocada pelos getline's
-
 					rewind(bckpinfoAnt); //apontador do ficheiro é posto a apontar para o inicio do ficheiro
 				}
 			}
@@ -241,7 +248,7 @@ int main(int argc, char* argv[]) {
 		if(auxAlteracao==0) {
 			nExistingChilds++;
 			printf("vai fazer rm!\n");
-			if((fork())==0){
+			if((fork())==0) {
 				execlp("rm","rm","-R",subdirPath,NULL);
 				printf("Erro! Command 'rm' not executed!\n");
 				exit(9);
@@ -260,15 +267,16 @@ int main(int argc, char* argv[]) {
 				nExistingChilds--;
 		}
 
-		FirstIteration=0;
-		printf("sleep\n\n\n");
-		sleep(dt);
-
 		//void rewinddir(DIR *dir);
 		if((closedir(d1))==-1){
 			perror(dir1);
 			exit(10);
 		}
+
+		FirstIteration=0;
+		printf("sleep\n\n\n");
+		sleep(dt);
+
 	}
 
 	//espera que todos os processos filho terminem
