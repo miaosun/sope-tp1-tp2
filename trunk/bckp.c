@@ -6,7 +6,8 @@ DIR *d1, *d2;
 int dt;
 int nExistingChilds = 0;
 int receivedSIGUSR1=0;
-
+int nfiles=0;
+int nfilesAnt=0;
 
 //t=(aluno *)malloc(sizeof(aluno));
 
@@ -29,7 +30,6 @@ int read_bckpinfo(char **a1, char **a2, char **a3, FILE *bckpinfoAnt)
 		perror("__bckpinfo__-filename");
 		return -1;
 	}
-
 	if (((*a1)[read-1]) == '\n')
 		((*a1)[read-1]) = '\0';
 
@@ -53,7 +53,6 @@ void writeTobckpinfo(FILE* file, char* filename, char* mtime, char* subdir) {
 	fprintf(file, "%s", mtime);
 	fprintf(file, "%s\n", subdir);
 }
-
 
 void fileCopy(char* filename, char* subdir) {
 
@@ -86,10 +85,9 @@ void fileCopy(char* filename, char* subdir) {
 				close(fd2);
 				exit(14); 
 			}
-		close(fd1); 
+		close(fd1);
 		close(fd2);
-
-		exit(0);
+		exit(EXIT_SUCCESS);
 	}
 }
 
@@ -137,7 +135,6 @@ int main(int argc, char* argv[]) {
 	int FirstIteration = 1; //variavel auxiliar indicadora se o processo de backup se encontra na 1ª iteração (full backup)
 
 
-
 	while(!receivedSIGUSR1) {
 
 		//abre directório (d1) a ser monitorizado
@@ -173,7 +170,8 @@ int main(int argc, char* argv[]) {
 			perror(dir1);
 			exit(5);
 		}
-
+		nfilesAnt=nfiles;
+		nfiles=0;
 		while ((direntp = readdir(d1)) != NULL) 
 		{
 			if (stat(direntp->d_name, &stat_buf)==-1)	{
@@ -183,6 +181,7 @@ int main(int argc, char* argv[]) {
 
 			if (S_ISREG(stat_buf.st_mode)) //verifica se se trata de um ficheiro regular
 			{
+				nfiles++;
 				char *filename= direntp->d_name;
 				char *mtime= ctime(&stat_buf.st_mtime);
 
@@ -276,7 +275,6 @@ int main(int argc, char* argv[]) {
 		FirstIteration=0;
 		printf("sleep\n\n\n");
 		sleep(dt);
-
 	}
 
 	//espera que todos os processos filho terminem
@@ -286,10 +284,10 @@ int main(int argc, char* argv[]) {
 
 	//altera permissoes do directorio de backup apenas para leitura e pesquisa,
 	//evitando assim alterações indevidas que poderiam pôr em causa a correcta recuperação dos ficheiros
-	chmod(dir2, S_IXUSR|S_IXGRP|S_IXOTH | S_IRUSR|S_IRGRP|S_IROTH);
+	chmod(dir2, S_IXUSR|S_IXGRP|S_IXOTH|S_IRUSR|S_IRGRP|S_IROTH);
 
 	fclose(bckpinfoAnt);
-	if((closedir(d2))==-1){
+	if((closedir(d2))==-1) {
 		perror(dir2);
 		exit(11);
 	}
