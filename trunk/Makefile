@@ -11,6 +11,7 @@ backup:
 
 
 restore:
+	clear
 	gcc rstr.c -o rstr -Wall
 
 

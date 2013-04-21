@@ -9,7 +9,6 @@ int receivedSIGUSR1=0;
 int nfiles=0;
 int nfilesAnt=0;
 
-//t=(aluno *)malloc(sizeof(aluno));
 
 // cria pasta backup incremental (YY_MM_DD_HH_MM_SS)
 void createBackupFoldername(char* subdir) {
@@ -35,8 +34,6 @@ int read_bckpinfo(char **a1, char **a2, char **a3, FILE *bckpinfoAnt)
 
 	if((read = getline(a2, &len, bckpinfoAnt)) == -1) 
 		perror("__bckpinfo__-datemodif");
-	//	if (((*a2)[read-1]) == '\n')
-	//		((*a2)[read-1]) = '\0';
 
 	if((read = getline(a3, &len, bckpinfoAnt)) == -1) 
 		perror("__bckpinfo__-pathname");
@@ -54,16 +51,18 @@ void writeTobckpinfo(FILE* file, char* filename, char* mtime, char* subdir) {
 	fprintf(file, "%s\n", subdir);
 }
 
+
+//funcao que efectua a copia (backup) de um ficheiro de nome "file_name" para a pasta "nome_pasta"
 void fileCopy(char* filename, char* subdir) {
 
 	nExistingChilds++;
 	int pid = fork();
-	if(pid==-1) {
+	if(pid==-1) { //teste erro
 		perror("Fork Failure!");
 		exit(EXIT_FAILURE);
 	}
-	else if(pid==0) {
-		printf("Backup: %s\n",filename);
+	else if(pid==0) { //filho
+		//printf("Backup do ficheiro: %s\n",filename);
 
 		int fd1, fd2, nr, nw;
 		unsigned char buffer[BUFFER_SIZE];
@@ -96,6 +95,7 @@ void fileCopy(char* filename, char* subdir) {
 	}
 }
 
+//handler para SIGUSR1
 void sigusr_handler(int signo)
 {
 	printf("SIGUSR1 Received!\n");
@@ -138,12 +138,13 @@ int main(int argc, char* argv[]) {
 
 	FILE *bckpinfoAnt=NULL; //apontador para ficheiro __bckpinfo__ do backup incremental anterior
 	int FirstIteration = 1; //variavel auxiliar indicadora se o processo de backup se encontra na 1ª iteração (full backup)
+	//fileinfo infoArray[100];
 
-
+	printf("A iniciar Backup do directório %s.\n\n",dir2);
+	
 	while(!receivedSIGUSR1) {
-
-		//abre directório (d1) a ser monitorizado
-		if ((d1 = opendir(dir1)) == NULL) { 
+		
+		if ((d1 = opendir(dir1)) == NULL) { //abre directório (d1) a ser monitorizado
 			perror(dir1);
 			exit(6);
 		}
@@ -152,7 +153,7 @@ int main(int argc, char* argv[]) {
 
 		char subdirectory[20];
 		createBackupFoldername(subdirectory);
-		printf("\nPasta Backup: %s\n", subdirectory);
+		//printf("\nPasta Backup: %s\n", subdirectory);
 
 		char subdirPath[PATH_MAX];
 		sprintf(subdirPath, "%s/%s",dir2,subdirectory);
@@ -167,8 +168,6 @@ int main(int argc, char* argv[]) {
 
 		struct dirent *direntp;
 		struct stat stat_buf;
-
-		printf("Backing up...\n\n");
 
 		//altera working directory para dir1
 		if((chdir(dir1))==-1) {
@@ -221,7 +220,6 @@ int main(int argc, char* argv[]) {
 					}
 
 					if(auxEncontra==0) { //ficheiro não existia no backup anterior
-						printf("ficheiro n existia\n");
 						writeTobckpinfo(bckpinfo, filename, mtime, subdirectory); //escreve em __bckpinfo__
 						fflush(bckpinfo);
 						fileCopy(filename, subdirectory); //lança processo de cópia
@@ -230,7 +228,6 @@ int main(int argc, char* argv[]) {
 					else
 					{
 						if(strcmp(a2,mtime)!=0) { //ficheiro já existia mas foi modificado
-							printf("ficheiro modificado\n");
 							writeTobckpinfo(bckpinfo, filename, mtime, subdirectory); //escreve em __bckpinfo__
 							fflush(bckpinfo);
 							fileCopy(filename, subdirectory); //lança processo de cópia
@@ -238,7 +235,6 @@ int main(int argc, char* argv[]) {
 						}
 						else
 						{	//ficheiro já existia e não foi alterado
-							printf("ficheiro inalterado - no backed up\n");
 							writeTobckpinfo(bckpinfo, filename, a2, a3); //escreve em __bckpinfo__
 							fflush(bckpinfo);
 						}
@@ -253,7 +249,7 @@ int main(int argc, char* argv[]) {
 		//verifica se existiu alguma alteração, caso não tenha: apaga directorio
 		if(!FirstIteration && nfiles==nfilesAnt && auxAlteracao==0) {
 			nExistingChilds++;
-			printf("vai fazer rm!\n");
+			printf("Não foram encontradas alterações.\n\n");
 			if((fork())==0) {
 				execlp("rm","rm","-R",subdirPath,NULL);
 				printf("Erro! Command 'rm' not executed!\n");
@@ -264,6 +260,7 @@ int main(int argc, char* argv[]) {
 			//se houve alterações, guarda apontador para ficheiro __bckpinfo__ a ser usado no próximo ciclo
 			fclose(bckpinfo);
 			bckpinfoAnt = fopen(bckpinfoPath, "r");
+			printf("Feito Backup para o directório %s.\n\n",subdirectory);
 		}
 
 		//recebe estados de terminação dos filhos já terminados
@@ -280,7 +277,6 @@ int main(int argc, char* argv[]) {
 		}
 
 		FirstIteration=0;
-		printf("sleep\n\n\n");
 		sleep(dt);
 	}
 
