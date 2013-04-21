@@ -159,8 +159,13 @@ int main(int argc, char* argv[]) {
 		pid_t pid;
 		pid = fork();
 		n_filhos++;
+		if(pid == -1)
+  		{
+      		fprintf(stderr, "fork error\n");
+      		exit(EXIT_FAILURE);
+   		}
 		//processo filho
-		if(pid==0) 
+		else if(pid==0) 
 		{
 			printf("Restore: %s\n",filename);
 			fileCopy(pathorg, pathdes);		//processo de copiar ficheiros		
@@ -191,10 +196,7 @@ int main(int argc, char* argv[]) {
 
 	//receber o estado de terminação de todos os restos filhos não foram apanhados pelo waitpid, para não ficar nenhum processo no estado zombie
 	while(n_filhos--)
-	{
-		//int statloc;
 		wait(NULL);
-	}
 
 	printf("\nFinishing!\n\n");
 	exit(0);
