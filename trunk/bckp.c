@@ -60,6 +60,7 @@ void fileCopy(char* filename, char* subdir) {
 	int pid = fork();
 	if(pid==-1) {
 		perror("Fork Failure!");
+		exit(EXIT_FAILURE);
 	}
 	else if(pid==0) {
 		printf("Backup: %s\n",filename);
