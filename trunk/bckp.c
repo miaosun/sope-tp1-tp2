@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
 		//abre directório (d1) a ser monitorizado
 		if ((d1 = opendir(dir1)) == NULL) { 
 			perror(dir1);
-			exit(6); 
+			exit(6);
 		}
 
 		int auxAlteracao = 0;
@@ -244,7 +244,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		//verifica se existiu alguma alteração, caso não tenha: apaga directorio
-		if(auxAlteracao==0) {
+		if(!FirstIteration && nfiles==nfilesAnt && auxAlteracao==0) {
 			nExistingChilds++;
 			printf("vai fazer rm!\n");
 			if((fork())==0) {
