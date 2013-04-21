@@ -57,7 +57,11 @@ void writeTobckpinfo(FILE* file, char* filename, char* mtime, char* subdir) {
 void fileCopy(char* filename, char* subdir) {
 
 	nExistingChilds++;
-	if(fork()==0) {
+	int pid = fork();
+	if(pid==-1) {
+		perror("Fork Failure!");
+	}
+	else if(pid==0) {
 		printf("Backup: %s\n",filename);
 
 		int fd1, fd2, nr, nw;
