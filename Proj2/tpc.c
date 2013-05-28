@@ -12,6 +12,7 @@
 
 
 char *SHM_NAME;
+char SEM_NAME[] = "/sem";
 
 char* baralho_cartas[52]= {"Ac","2c","3c","4c","5c","6c","7c","8c","9c","10c","Jc","Qc","Kc","Ad","2d","3d","4d","5d","6d","7d","8d","9d","10d","Jd","Qd","Kd","Ah","2h","3h","4h","5h","6h","7h","8h","9h","10h","Jh","Qh","Kh","As","2s","3s","4s","5s","6s","7s","8s","9s","10s","Js","Qs","Ks"};
 
@@ -31,9 +32,10 @@ typedef struct {
 	int n_jogadores;
 	int vez;
 	int senha;
+	int ajogar;
 	int roundnumber;
-
-	char tablecards[52][4];
+	char* rondas[27];
+	char tablecards[52];
 
 	Jogador jogadores_info[52];
 } Shared_mem;
@@ -45,19 +47,19 @@ Shared_mem *shm;
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;  //mutex para a sec. crit.
 
 
-void destroy_shared_memory(Shared_mem *shm)
-{
-	if (munmap(shm,SHM_SIZE) < 0)
-	{
-		perror("Failure in munmap()");
-		exit(EXIT_FAILURE);
-	}
-	if (shm_unlink(SHM_NAME) < 0)
-	{
-		perror("Failure in shm_unlink()");
-		exit(EXIT_FAILURE);
-	}
-}
+//void destroy_shared_memory(Shared_mem *shm)
+//{
+//	if (munmap(shm,SHM_SIZE) < 0)
+//	{
+//		perror("Failure in munmap()");
+//		exit(EXIT_FAILURE);
+//	}
+//	if (shm_unlink(SHM_NAME) < 0)
+//	{
+//		perror("Failure in shm_unlink()");
+//		exit(EXIT_FAILURE);
+//	}
+//}
 
 void *open_dealer_fifo(void *arg) {
 	void *ret;
@@ -103,6 +105,62 @@ void esperaPorJogadores()
 	pthread_mutex_unlock(&shm->start_lock);
 }
 
+void jogar_carta(char* mao[], int ncartas) {
+	int i;
+	printf("Seleccione a carta a jogar (nr carta):\n");
+	for(i=1; i<=ncartas;i++) {
+		printf("%d: %s\n", i,mao[i-1]);
+	}
+	int esc;
+	printf("Escolha: ");
+	scanf("%d",&esc);
+
+	char carta[4];
+	strcpy(carta,mao[esc-1]);
+	strcpy(mao[esc-1],mao[ncartas-1]);
+
+	strcat(shm->tablecards,carta);
+	if(shm->ajogar<(shm->n_jogadores-1))
+		strcat(shm->tablecards,"  -  ");
+	shm->vez++;
+	if(shm->vez==shm->n_jogadores)
+		shm->vez=0;
+	shm->ajogar++;
+
+	pthread_cond_broadcast(&shm->var_cond);
+}
+
+void jogar(int nrJogador,char* mao[], int ncartas) {
+	pthread_mutex_lock(&shm->start_lock);
+
+	if(nrJogador==0 && shm->ajogar==shm->n_jogadores) {
+		if(shm->roundnumber!=0) {
+			shm->rondas[shm->roundnumber] = (char*) malloc(sizeof(shm->tablecards));
+			strcpy(shm->rondas[shm->roundnumber],shm->tablecards);
+			int n = rand() % shm->n_jogadores;
+			shm->vez=n;
+		}
+		else {
+			shm->vez=0;
+		}
+		shm->roundnumber++;
+		shm->ajogar=0;
+		strcpy(shm->tablecards,"");
+
+	}
+
+	while(shm->vez != nrJogador)
+	{
+		printf("Vez do jogador %d\n",shm->vez);
+		pthread_cond_wait(&shm->var_cond, &shm->start_lock);
+	}
+	printf("VEZ DE JOGAR\n");
+	jogar_carta(mao,ncartas);
+	pthread_mutex_unlock(&shm->start_lock);
+}
+
+
+
 int main(int argc, char *argv[])
 {
 	int shmfd, n_jogs;
@@ -136,9 +194,22 @@ int main(int argc, char *argv[])
 	//número de jogadores
 	n_jogs = atoi(argv[3]);
 
-	//cria uma regiao de memoria partilhada
+	sem_t *sem;
+	sem = sem_open(SEM_NAME,O_CREAT,0600,1);
+	if(sem==SEM_FAILED) {
+		sem=sem_open(SEM_NAME,0,0600,1);
+		if(sem==SEM_FAILED) {
+			perror("sem_open() failure");
+			exit(4);
+		}
+	}
+
+	sem_wait(sem);
+
+	//tenta criar regiao de memoria partilhada
 	if((shmfd = shm_open(SHM_NAME,O_CREAT|O_RDWR|O_EXCL,0660)) < 0)
 	{
+		//falha, significa que já foi criada. agora apenas abre
 		if((shmfd = shm_open(SHM_NAME,O_RDWR,0600)) < 0)
 		{
 			perror("shm_open error");
@@ -177,14 +248,14 @@ int main(int argc, char *argv[])
 
 		shm->jogadores_info[myNrjogador] = jg;
 
-		printf("Numero de Jogadores: %d\n", shm->senha);
+		printf("Sou o jogador numero: %d\n", myNrjogador);
 
 		pthread_cond_broadcast(&shm->var_cond);
 		pthread_mutex_unlock(&shm->start_lock);
 
 	}
 
-	else
+	else //DEALER
 	{
 		if(ftruncate(shmfd, SHM_SIZE) < 0)
 		{
@@ -218,10 +289,11 @@ int main(int argc, char *argv[])
 				printf("FIFO %s already exists\n", myFIFO);
 			else
 				printf("Can't create FIFO\n");
-		}
+		}	//reinicia ronda
 		else
 			printf("FIFO created\n");
 
+		shm->senha=0;
 		shm->n_jogadores = n_jogs;
 		myNrjogador = shm->senha;
 		shm->senha++;
@@ -233,11 +305,15 @@ int main(int argc, char *argv[])
 
 		shm->jogadores_info[myNrjogador] = jg;
 
-		printf("Sou o dealer.\n");
-		//printf("Numero de Jogadores: %d\n", shm->senha);
+		shm->roundnumber=0;
+		shm->vez=0;
+		shm->ajogar=shm->n_jogadores;
+
+		printf("Sou o dealer. Jogador numero 0.\n");
 
 	}
 
+	sem_post(sem);
 	esperaPorJogadores();
 
 	int nr_cartas_por_jogador = 52/n_jogs;
@@ -291,21 +367,41 @@ int main(int argc, char *argv[])
 
 	printf("Cartas da Mao: \n");
 	apresentacao_cartas(mao_cartas,nr_cartas_por_jogador);
+	int nrcartas=nr_cartas_por_jogador;
 
+	int rounds=52/n_jogs;
+	while(rounds>0) {
+		jogar(myNrjogador,mao_cartas,nrcartas);
+		rounds--;
+		nrcartas--;
+	}
+
+	//jogar(myNrjogador);
+
+
+
+
+
+	//fecha FIFO do jogador
 	close(fdr);
+	//destroi FIFO do jogador
 	if(unlink(myFIFO)<0) {
 		printf("Erro a destroir FIFO\n");
 	}
-	//shm->jogadores_info[myNrjogador].cartas = mao_cartas;
-	//printf("Mao de Cartas: ");
+	if(sem_close(sem)<0)
+		perror("sem_close failure");
 
-
+	//munmap da melhoria partilhada
 	if (munmap(shm,SHM_SIZE) < 0)
 	{
 		perror("Failure in munmap()");
 		exit(EXIT_FAILURE);
 	}
 	if(myNrjogador==0) {
+		if(sem_unlink(SEM_NAME)<0)
+			perror("sem_unlink failure");
+
+		//dealer destroi a regiao de memoria partilhada
 		if (shm_unlink(SHM_NAME) < 0)
 		{
 			perror("Failure in shm_unlink()");
