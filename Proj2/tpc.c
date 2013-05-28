@@ -107,7 +107,7 @@ void esperaPorJogadores()
 
 void jogar_carta(char* mao[], int ncartas) {
 	int i;
-	printf("Mesa: %s\n",shm->tablecards);
+	printf("Cartas da Mesa: %s\n\n",shm->tablecards);
 	printf("Seleccione a carta a jogar (nr carta):\n");
 	for(i=1; i<=ncartas;i++) {
 		printf("%d: %s\n", i,mao[i-1]);
@@ -141,32 +141,29 @@ void jogar(int nrJogador,char* mao[], int ncartas) {
 			printf("Vez do jogador %d\n",shm->vez);
 			pthread_cond_wait(&shm->var_cond, &shm->start_lock);
 		}
-		printf("passa aqui \n");
 		if(shm->roundnumber!=0) {
+			printf("Fim da Ronda: %s\n\n",shm->tablecards);
+			printf("Nova Ronda!\n");
 			shm->rondas[shm->roundnumber] = (char*) malloc(sizeof(shm->tablecards));
 			strcpy(shm->rondas[shm->roundnumber],shm->tablecards);
-			//int n = rand() % shm->n_jogadores;
-			//shm->vez=n;
-			//		}
-			//		else {
 		}
 		shm->vez=0;
-		//		}
+
 		shm->roundnumber++;
 		shm->ajogar=0;
 		strcpy(shm->tablecards,"");
 
-		printf("VEZ DE JOGAR\n");
+		printf("É a sua vez de Jogar\n\n");
 		jogar_carta(mao,ncartas);
 		pthread_mutex_unlock(&shm->start_lock);
 	} else {
 
 		while(shm->vez != nrJogador)
 		{
-			printf("Vez do jogador %d\n",shm->vez);
+			printf("É a vez do jogador %d\n",shm->vez);
 			pthread_cond_wait(&shm->var_cond, &shm->start_lock);
 		}
-		printf("VEZ DE JOGAR\n");
+		printf("É a sua vez de Jogar\n\n");
 		jogar_carta(mao,ncartas);
 		pthread_mutex_unlock(&shm->start_lock);
 	}
