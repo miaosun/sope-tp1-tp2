@@ -161,6 +161,7 @@ void jogar(int nrJogador,char* mao[], int ncartas) {
 
 
 
+
 int main(int argc, char *argv[])
 {
 	int shmfd, n_jogs;
@@ -355,10 +356,8 @@ int main(int argc, char *argv[])
 	int k, n;
 	char* mao_cartas[nr_cartas_por_jogador];
 	for(k=0;k<nr_cartas_por_jogador;k++) {
-		printf("vai receber cartas\n");
 		mao_cartas[k]= malloc(sizeof(char)*4);
 		n=read(fdr,mao_cartas[k],sizeof(char*));
-		printf("carta: %s\n", mao_cartas[k]);
 		if(n==0) {
 			printf("FIFO failure");
 			exit(3);
@@ -376,7 +375,7 @@ int main(int argc, char *argv[])
 		nrcartas--;
 	}
 
-	//jogar(myNrjogador);
+
 
 
 
