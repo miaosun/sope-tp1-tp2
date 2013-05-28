@@ -44,8 +44,27 @@ Shared_mem *shm;
 
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;  //mutex para a sec. crit.
 
+
+void destroy_shared_memory(Shared_mem *shm, int shm_size)
+{
+	if (munmap(shm,shm_size) < 0)
+	{
+		perror("Failure in munmap()");
+		exit(EXIT_FAILURE);
+	}
+	if (shm_unlink(SHM_NAME) < 0)
+	{
+		perror("Failure in shm_unlink()");
+		exit(EXIT_FAILURE);
+	}
+}
+
 char* retira_carta_baralho() {
 
+
+}
+
+char* apresentacao_cartas(char* c[]) {
 
 }
 
@@ -200,13 +219,22 @@ int main(int argc, char *argv[])
 
 	int nr_cartas_por_jogador = 52/n_jogs;
 
+	int fdr;
+	//abrir fifo leitura para todos os jogadores
+	if(myNrjogador==0) {
+		//chama tread abertura fifo leitura
+	}
+	else {
+		open(myFIFO, O_RDONLY);
+	}
+
 	if(myNrjogador==0) { //dealer
 
 		int fdw;
 		int i;
 		for(i=0;i<n_jogs;i++) {
 			fdw=open(shm->jogadores_info[i].FIFO_nome, O_WRONLY);
-		
+
 			char* carta;
 			int j;
 			for(j=0;j<nr_cartas_por_jogador;j++) {
@@ -217,22 +245,26 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	//todos os jogadores
-	int fdr = open(myFIFO, O_RDONLY);
 
 	int k, n;
 	char* mao_cartas[nr_cartas_por_jogador];
 	for(k=0;k<nr_cartas_por_jogador;k++) {
 		n=read(fdr,mao_cartas[k],sizeof(char)*4);
 	}
-	
+	char* repr = apresentacao_cartas(mao_cartas);
+
+
 	close(fdr);
 	//shm->jogadores_info[myNrjogador].cartas = mao_cartas;
 	//printf("Mao de Cartas: ");
 
+
+
 	printf("hello\n");
 	sleep(20);
 
+
+	//destroy memory?
 	unlink(myFIFO);
 	shm_unlink(SHM_NAME);
 
