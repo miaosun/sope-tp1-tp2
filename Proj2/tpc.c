@@ -59,9 +59,14 @@ void destroy_shared_memory(Shared_mem *shm, int shm_size)
 	}
 }
 
-char* retira_carta_baralho() {
+char* retira_carta_baralho(int count) {
 
+	int n = rand() % count;
 
+	char carta[4]=baralho_cartas[n];
+	baralho_cartas[n]=baralho_cartas[count-1];
+
+	return carta;
 }
 
 char* apresentacao_cartas(char* c[]) {
@@ -230,7 +235,9 @@ int main(int argc, char *argv[])
 
 	if(myNrjogador==0) { //dealer
 
+		srand (time(NULL));
 		int fdw;
+		int count_cartas=52;
 		int i;
 		for(i=0;i<n_jogs;i++) {
 			fdw=open(shm->jogadores_info[i].FIFO_nome, O_WRONLY);
@@ -238,7 +245,8 @@ int main(int argc, char *argv[])
 			char* carta;
 			int j;
 			for(j=0;j<nr_cartas_por_jogador;j++) {
-				carta=retira_carta_baralho();
+				carta=retira_carta_baralho(count_cartas);
+				count_cartas--;
 				write(fdw,carta,strlen(carta));
 			}
 			close(fdw);
