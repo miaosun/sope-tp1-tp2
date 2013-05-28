@@ -139,6 +139,12 @@ void jogar(int nrJogador,char* mao[], int ncartas) {
 		while(shm->vez != nrJogador)
 		{
 			printf("Vez do jogador %d\n",shm->vez);
+			printf("Ver alguma coisa quando outros a jogar?\n");
+			printf("1. sldfsdjkf\n");
+
+			//char c;
+			//scanf("%c", &c);
+
 			pthread_cond_wait(&shm->var_cond, &shm->start_lock);
 		}
 		if(shm->roundnumber!=0) {
@@ -179,7 +185,6 @@ int main(int argc, char *argv[])
 	char nome[20];
 	char SHM_NAME[20];
 	char myFIFO[25];
-
 
 	if(argc != 4)
 	{
@@ -344,6 +349,31 @@ int main(int argc, char *argv[])
 		int count_cartas=52;
 		int i;
 
+		FILE *f;
+		char filename[20];
+
+		sprintf(filename, "%s.log", argv[2]);
+
+		if((f = fopen(filename,  "w")) ==NULL)
+		{
+			perror("can't create log file\n");
+			exit(5);
+		}
+
+		char tempo[];
+		time_t rawtime;
+		struct tm * timeinfo;
+		time(&rawtime);
+		timeinfo = localtime(&rawtime);
+		//cria nome da pasta de backup com base na data&hora actual
+		strftime(tempo,20,"%Y_%m_%d_%H_%M_%S", timeinfo);
+
+		char line[];
+		fprintf(f, "when           | who            | what           | result                         \n");
+		fprintf(f, "%s | Dealer-%s | deal     | -               ", tempo, nome);
+		pthread_t tid;
+		sprintf(line, "%s | Dealer-%s | deal     | -               ", tempo, nome);
+		pthread_create(&tid, NULL, escreve_log, &line);
 
 		for(i=0;i<n_jogs;i++) {
 			fdw=open(shm->jogadores_info[i].FIFO_nome, O_WRONLY);
