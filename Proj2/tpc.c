@@ -13,6 +13,9 @@
 
 char *SHM_NAME;
 
+char* baralho_cartas[52]= {"Ac","2c","3c","4c","5c","6c","7c","8c","9c","10c","Jc","Qc","Kc","Ad","2d","3d","4d","5d","6d","7d","8d","9d","10d","Jd","Qd","Kd","Ah","2h","3h","4h","5h","6h","7h","8h","9h","10h","Jh","Qh","Kh","As","2s","3s","4s","5s","6s","7s","8s","9s","10s","Js","Qs","Ks"};
+
+
 typedef struct {
 	int n_jogador;
 	char nome[20];
@@ -41,21 +44,27 @@ Shared_mem *shm;
 
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;  //mutex para a sec. crit.
 
+char* retira_carta_baralho() {
+
+
+}
+
+
 void esperaPorJogadores()
 {
-	pthread_mutex_lock(&(shm->start_lock));
+	pthread_mutex_lock(&shm->start_lock);
 	while(shm->n_jogadores != shm->senha)
 	{
 		printf("...Waiting for more players...\n");
-		pthread_cond_wait(&(shm->var_cond), &(shm->start_lock));
+		pthread_cond_wait(&shm->var_cond, &shm->start_lock);
 	}
-	pthread_mutex_unlock(&(shm->start_lock));
+	pthread_mutex_unlock(&shm->start_lock);
 }
 
 int main(int argc, char *argv[])
 {
 	int shmfd, n_jogs;
-	int nrjogador;
+	int myNrjogador;
 	char nome[20];
 	char SHM_NAME[20];
 	char myFIFO[25];
@@ -64,21 +73,29 @@ int main(int argc, char *argv[])
 	if(argc != 4)
 	{
 		printf("Usage: tpc <player's name> <shm name> <n. players>\n");
-		return 1;
+		exit(1);
+	}
+
+	if(atoi(argv[3]) > 52)
+	{
+		printf("Numero de Jogadores nao pode ser superior a 52!\n");
+		exit(2);
 	}
 
 	strcpy(nome, argv[1]);
 
+	//atribui à variavel o nome da memória partilhada
 	if(sprintf(SHM_NAME, "/%s", argv[2]) < 0)
 	{
 		perror("sprintf error");
 		exit(1);
 	}
 
+	//número de jogadores
 	n_jogs = atoi(argv[3]);
 
-	//create the shared memory region
-	if((shmfd = shm_open(SHM_NAME,O_CREAT|O_RDWR|O_EXCL,0600)) < 0)
+	//cria uma regiao de memoria partilhada
+	if((shmfd = shm_open(SHM_NAME,O_CREAT|O_RDWR|O_EXCL,0660)) < 0)
 	{
 		if((shmfd = shm_open(SHM_NAME,O_RDWR,0600)) < 0)
 		{
@@ -96,7 +113,6 @@ int main(int argc, char *argv[])
 		pthread_mutex_lock(&shm->start_lock);
 
 		sprintf(myFIFO, "FIFO_%s", nome);
-
 		if(mkfifo(myFIFO, 0660) < 0)
 		{
 			if(errno == EEXIST)
@@ -105,20 +121,21 @@ int main(int argc, char *argv[])
 				printf("Can't create FIFO\n");
 		}
 		else
-			printf("FIFO created\n");
+			printf("FIFO %s created\n", myFIFO);
 
-		nrjogador = shm->senha;
+		//jogador retira o seu número (senha)
+		myNrjogador = shm->senha;
+		//e incrementa variavel senha
 		shm->senha++;
 
 		Jogador jg;
-		jg.n_jogador = nrjogador;
+		jg.n_jogador = myNrjogador;
 		strcpy(jg.nome, nome);
 		strcpy(jg.FIFO_nome, myFIFO);
 
-		shm->jogadores_info[nrjogador] = jg;
+		shm->jogadores_info[myNrjogador] = jg;
 
 		printf("Numero de Jogadores: %d\n", shm->senha);
-
 
 		pthread_cond_broadcast(&shm->var_cond);
 		pthread_mutex_unlock(&shm->start_lock);
@@ -153,7 +170,6 @@ int main(int argc, char *argv[])
 		pthread_cond_init(&shm->var_cond, &cattr);
 
 		sprintf(myFIFO, "FIFO_%s", nome);
-
 		if(mkfifo(myFIFO, 0660) < 0)
 		{
 			if(errno == EEXIST)
@@ -165,31 +181,54 @@ int main(int argc, char *argv[])
 			printf("FIFO created\n");
 
 		shm->n_jogadores = n_jogs;
-		nrjogador = shm->senha;
+		myNrjogador = shm->senha;
 		shm->senha++;
 
 		Jogador jg;
-		jg.n_jogador = nrjogador;
+		jg.n_jogador = myNrjogador;
 		strcpy(jg.nome, nome);
 		strcpy(jg.FIFO_nome, myFIFO);
 
-		shm->jogadores_info[nrjogador] = jg;
+		shm->jogadores_info[myNrjogador] = jg;
 
-		printf("Numero de Jogadores: %d\n", shm->senha);
-
-
+		printf("Sou o dealer.\n");
+		//printf("Numero de Jogadores: %d\n", shm->senha);
 
 	}
 
-
-
-
 	esperaPorJogadores();
 
+	int nr_cartas_por_jogador = 52/n_jogs;
 
+	if(myNrjogador==0) { //dealer
 
+		int fdw;
+		int i;
+		for(i=0;i<n_jogs;i++) {
+			fdw=open(shm->jogadores_info[i].FIFO_nome, O_WRONLY);
+		
+			char* carta;
+			int j;
+			for(j=0;j<nr_cartas_por_jogador;j++) {
+				carta=retira_carta_baralho();
+				write(fdw,carta,strlen(carta));
+			}
+			close(fdw);
+		}
+	}
 
+	//todos os jogadores
+	int fdr = open(myFIFO, O_RDONLY);
 
+	int k, n;
+	char* mao_cartas[nr_cartas_por_jogador];
+	for(k=0;k<nr_cartas_por_jogador;k++) {
+		n=read(fdr,mao_cartas[k],sizeof(char)*4);
+	}
+	
+	close(fdr);
+	//shm->jogadores_info[myNrjogador].cartas = mao_cartas;
+	//printf("Mao de Cartas: ");
 
 	printf("hello\n");
 	sleep(20);
