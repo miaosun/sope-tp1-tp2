@@ -69,8 +69,17 @@ char* retira_carta_baralho(int count) {
 	return carta;
 }
 
-char* apresentacao_cartas(char* c[]) {
+void apresentacao_cartas(char* c[]) {
 
+	int i;
+	size_t size = sizeof(c);
+	for(i=0; i<size; i++)
+	{
+		printf("%s", c[i]);
+		if(i!=size-1)
+			printf("-");
+	}
+	printf("\n");
 }
 
 
@@ -259,7 +268,8 @@ int main(int argc, char *argv[])
 	for(k=0;k<nr_cartas_por_jogador;k++) {
 		n=read(fdr,mao_cartas[k],sizeof(char)*4);
 	}
-	char* repr = apresentacao_cartas(mao_cartas);
+
+	apresentacao_cartas(mao_cartas);
 
 
 	close(fdr);
