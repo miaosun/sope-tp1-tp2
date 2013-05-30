@@ -1,6 +1,6 @@
 #include "tpc.h"
 
-#define N_CARTAS 20
+#define N_CARTAS 6
 
 char SHM_NAME[20];
 char SEM_NAME[] = "/sem";
@@ -15,7 +15,9 @@ struct tm * timeinfo;
 struct timeval tv1;
 
 //char* baralho_cartas[52]= {"Ac","2c","3c","4c","5c","6c","7c","8c","9c","10c","Jc","Qc","Kc","Ad","2d","3d","4d","5d","6d","7d","8d","9d","10d","Jd","Qd","Kd","Ah","2h","3h","4h","5h","6h","7h","8h","9h","10h","Jh","Qh","Kh","As","2s","3s","4s","5s","6s","7s","8s","9s","10s","Js","Qs","Ks"};
-char* baralho_cartas[20]= {"Ac","2c","3c","Qc","Kc","Ad","2d","3d","Qd","Kc","Ah","2h","3h","Qh","Kh","As","2s","3s","Qs","Ks"};
+//char* baralho_cartas[20]= {"Ac","2c","3c","Qc","Kc","Ad","2d","3d","Qd","Kc","Ah","2h","3h","Qh","Kh","As","2s","3s","Qs","Ks"};
+char* baralho_cartas[6]= {"Ac","2c","3c","Qc","Kc","Ad"};
+
 Shared_mem *shm;
 
 #define SHM_SIZE sizeof(Shared_mem)
@@ -149,8 +151,8 @@ void jogar(int nrJogador,char* mao[], int ncartas) {
 		if(shm->roundnumber!=0) {
 			printf("Fim da Ronda: %s\n\n",shm->tablecards);
 			printf("Ronda %d!\n",shm->roundnumber);
-			shm->rondas[shm->roundnumber] = (char*) malloc(sizeof(shm->tablecards));
-			strcpy(shm->rondas[shm->roundnumber],shm->tablecards);
+			//shm->rondas[shm->roundnumber-1] = (char*) malloc(sizeof(shm->tablecards));
+			strcpy(shm->rondas[shm->roundnumber-1],shm->tablecards);
 		}
 		shm->vez=0;
 
@@ -169,7 +171,24 @@ void jogar(int nrJogador,char* mao[], int ncartas) {
 	pthread_mutex_unlock(&shm->start_lock);
 }
 
+void* ver_resumo(void *arg)
+{
+	char inp[10];
+	char esc;
+	do{
+		printf("Escolha: ");
+		scanf("%s",inp);
+		esc = inp[0];
+		fflush(stdin);
+	}while(esc!='s' && esc!='n');
 
+	if(esc=='s') {
+		int i;
+		for(i=0;i<N_CARTAS/shm->n_jogadores;i++)
+			printf("Ronda %d: %s\n\n",i+1,shm->rondas[i]);
+	}
+	return NULL;
+}
 
 
 int main(int argc, char *argv[])
@@ -404,28 +423,23 @@ int main(int argc, char *argv[])
 		nrcartas--;
 	}
 
+	if(playerNr == 0) {
+		printf("\n...Waiting for others to end...\n\n");
+		while(shm->ajogar != shm->n_jogadores){}
+		//shm->rondas[shm->roundnumber-1] = (char*) malloc(sizeof(shm->tablecards));
+		strcpy(shm->rondas[shm->roundnumber-1],shm->tablecards);
+	}
 	printf("Fim do Jogo!\n");
 	struct timeval tv2;
 	gettimeofday(&tv2, NULL);
 	printf("Tempo total de jogo: %f\n\n\n",((double) (tv2.tv_usec - tv1.tv_usec) / 1000000
 			+ (double) (tv2.tv_sec - tv1.tv_sec)));
 
-
-	char inp[10];
-	char esc;
-	do{
-		printf("Escolha: ");
-		scanf("%s",inp);
-		esc = inp[0];
-		fflush(stdin);
-	}while(esc!='s' && esc!='n');
-
-
-		if(esc=='s') {
-			int i;
-			for(i=0;i<N_CARTAS/n_jogs;i++)
-				printf("Ronda %d: %s\n\n",i+1,shm->rondas[i]);
-		}
+	printf("Prentede ver resumo de todas as jogadas? (s/n)\n");
+	//TODO
+	pthread_t tid1;
+	pthread_create(&tid1, NULL, ver_resumo, NULL);
+	pthread_join(tid1,NULL);
 
 
 	//fecha FIFO do jogador
@@ -455,7 +469,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-
 	printf("Exiting...\n");
-	return 0;
+	pthread_exit(0);
 }
