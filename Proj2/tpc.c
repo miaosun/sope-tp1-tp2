@@ -1,5 +1,6 @@
 #include "tpc.h"
 
+#define N_CARTAS 20
 
 char SHM_NAME[20];
 char SEM_NAME[] = "/sem";
@@ -11,33 +12,23 @@ char nome[20];
 time_t rawtime;
 struct tm * timeinfo;
 
-char* baralho_cartas[52]= {"Ac","2c","3c","4c","5c","6c","7c","8c","9c","10c","Jc","Qc","Kc","Ad","2d","3d","4d","5d","6d","7d","8d","9d","10d","Jd","Qd","Kd","Ah","2h","3h","4h","5h","6h","7h","8h","9h","10h","Jh","Qh","Kh","As","2s","3s","4s","5s","6s","7s","8s","9s","10s","Js","Qs","Ks"};
-
+//char* baralho_cartas[52]= {"Ac","2c","3c","4c","5c","6c","7c","8c","9c","10c","Jc","Qc","Kc","Ad","2d","3d","4d","5d","6d","7d","8d","9d","10d","Jd","Qd","Kd","Ah","2h","3h","4h","5h","6h","7h","8h","9h","10h","Jh","Qh","Kh","As","2s","3s","4s","5s","6s","7s","8s","9s","10s","Js","Qs","Ks"};
+char* baralho_cartas[20]= {"Ac","2c","3c","Qc","Kc","Ad","2d","3d","Qd","Kc","Ah","2h","3h","Qh","Kh","As","2s","3s","Qs","Ks"};
 Shared_mem *shm;
 
 #define SHM_SIZE sizeof(Shared_mem)
-
-typedef struct {
-	char line1[150];
-	char line2[150];
-} Line;
-Line line;
 
 //escreve para o ficheiro de log
 void *escreve_log(void* arg) {
 	pthread_mutex_lock(&shm->log_lock);
 	FILE* logf;
 	logf = fopen(logfilename,"a");
-	//void *ret;
-	//char *c;
-	//c = arg;
-	//fprintf(logf, "%s", (char *)arg);
-	fprintf(logf, "%s", line.line1);
-	fprintf(logf, "%s", line.line2);
+	fflush(logf);
+
+	fprintf(logf, "%s", (char*)arg);
 	fclose(logf);
+
 	pthread_mutex_unlock(&shm->log_lock);
-	strcpy(line.line1, "");
-	strcpy(line.line2, "");
 	return NULL;
 }
 
@@ -76,6 +67,7 @@ char* retira_carta_baralho(int count) {
 
 char* apresentacao_cartas(char* c[], int nr) {
 	char* s=(char*)malloc(sizeof(char)*100);
+	strcpy(s, "");
 	int i;
 	for(i=0; i<nr; i++)
 	{
@@ -85,18 +77,6 @@ char* apresentacao_cartas(char* c[], int nr) {
 	}
 	strcat(s,"\n");
 	return s;
-}
-
-void impressao_cartas(char* c[], int nr) {
-
-	int i;
-	for(i=0; i<nr; i++)
-	{
-		printf("%s", c[i]);
-		if(i!=nr-1)
-			printf("-");
-	}
-	printf("\n");
 }
 
 void *esperaPorJogadores(void* arg)
@@ -118,24 +98,27 @@ void jogar_carta(char* mao[], int ncartas) {
 	for(i=1; i<=ncartas;i++) {
 		printf("%d: %s\n", i,mao[i-1]);
 	}
+	char inp[10];
 	int esc;
-	printf("Escolha: ");
-	scanf("%d",&esc);
+	do{
+		printf("Escolha: ");
+		scanf("%s",inp);
+		esc = atoi(inp);
+		fflush(stdin);
+	}while(esc > ncartas || esc < 1);
 
 	char carta[4];
 	strcpy(carta,mao[esc-1]);
 	strcpy(mao[esc-1],mao[ncartas-1]);
+	char line1[150];
+	char line2[1000];
 
-//	char line[150] = "";
-//	char line2[400] = "";
-//	//char line2[3000];
-//	sprintf(line,"%s | Player%d-%s | play            | %s \n",getTime(), playerNr,nome,carta);
-//	sprintf(line2,"%s%s | Player%d-%s | hand            | %s \n",line,getTime(), playerNr,nome,apresentacao_cartas(mao,ncartas-1));
-	sprintf(line.line1,"%s | Player%d-%s | play            | %s\n",getTime(), playerNr,nome,carta);
-	sprintf(line.line2,"%s | Player%d-%s | hand            | %s",getTime(), playerNr,nome,apresentacao_cartas(mao,ncartas-1));
-	//printf("Test: %s\n", line2);
+	sprintf(line1,"%s | Player%d-%s | play           | %s\n",getTime(), playerNr,nome,carta);
+	sprintf(line2,"%s%s | Player%d-%s | hand           | %s",line1,getTime(), playerNr,nome,apresentacao_cartas(mao,ncartas-1));
+
 	pthread_t tid;
-	pthread_create(&tid, NULL, escreve_log, (void *)&line);
+	pthread_create(&tid, NULL, escreve_log, (void *)&line2);
+
 	strcat(shm->tablecards,carta);
 	if(shm->ajogar<(shm->n_jogadores-1))
 		strcat(shm->tablecards,"  -  ");
@@ -194,9 +177,9 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if(atoi(argv[3]) > 52)
+	if(atoi(argv[3]) > N_CARTAS)
 	{
-		printf("Numero de Jogadores nao pode ser superior a 52!\n");
+		printf("Numero de Jogadores nao pode ser superior a %d!\n", N_CARTAS);
 		exit(2);
 	}
 
@@ -336,7 +319,7 @@ int main(int argc, char *argv[])
 
 		char line[300];
 		char s[100] = "when                | who           | what           | result                         \n";
-		sprintf(line,"%s%s | Dealer-%s   | deal           | -               \n", s,getTime(), nome);
+		sprintf(line,"%s%s | Dealer -%s | deal           | -               \n", s,getTime(), nome);
 		pthread_t tid;
 		pthread_create(&tid, NULL, escreve_log, (void *)&line);
 
@@ -345,10 +328,9 @@ int main(int argc, char *argv[])
 	sem_post(sem);
 	pthread_t tide;
 	pthread_create(&tide, NULL, esperaPorJogadores, NULL);
-	//esperaPorJogadores();
 	pthread_join(tide,NULL);
 
-	int nr_cartas_por_jogador = 52/n_jogs;
+	int nr_cartas_por_jogador = N_CARTAS/n_jogs;
 
 	int fdr;
 	//abrir fifo leitura para todos os jogadores
@@ -362,7 +344,7 @@ int main(int argc, char *argv[])
 
 		srand (time(NULL));
 		int fdw;
-		int count_cartas=52;
+		int count_cartas=N_CARTAS;
 		int i;
 
 
@@ -395,9 +377,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-
-
-
 	printf("Cartas da Mao: \n");
 	char* repr_cartas=apresentacao_cartas(mao_cartas,nr_cartas_por_jogador);
 	//impressao_cartas(mao_cartas,nr_cartas_por_jogador);
@@ -409,7 +388,7 @@ int main(int argc, char *argv[])
 	pthread_t tid;
 	pthread_create(&tid, NULL, escreve_log, (void *)&line);
 
-	int rounds=52/n_jogs;
+	int rounds=N_CARTAS/n_jogs;
 	while(rounds>0) {
 		jogar(playerNr,mao_cartas,nrcartas);
 		rounds--;
@@ -443,7 +422,6 @@ int main(int argc, char *argv[])
 			exit(EXIT_FAILURE);
 		}
 	}
-
 
 
 	printf("Exiting...\n");
