@@ -12,6 +12,8 @@ char nome[20];
 time_t rawtime;
 struct tm * timeinfo;
 
+struct timeval tv1;
+
 //char* baralho_cartas[52]= {"Ac","2c","3c","4c","5c","6c","7c","8c","9c","10c","Jc","Qc","Kc","Ad","2d","3d","4d","5d","6d","7d","8d","9d","10d","Jd","Qd","Kd","Ah","2h","3h","4h","5h","6h","7h","8h","9h","10h","Jh","Qh","Kh","As","2s","3s","4s","5s","6s","7s","8s","9s","10s","Js","Qs","Ks"};
 char* baralho_cartas[20]= {"Ac","2c","3c","Qc","Kc","Ad","2d","3d","Qd","Kc","Ah","2h","3h","Qh","Kh","As","2s","3s","Qs","Ks"};
 Shared_mem *shm;
@@ -93,6 +95,10 @@ void *esperaPorJogadores(void* arg)
 
 void jogar_carta(char* mao[], int ncartas) {
 	int i;
+	struct timeval tv2;
+	gettimeofday(&tv2, NULL);
+
+	printf("Tempo de jogo: %f\n",((double) (tv2.tv_usec - tv1.tv_usec) / 1000000	+ (double) (tv2.tv_sec - tv1.tv_sec)));
 	printf("Cartas da Mesa: %s\n\n",shm->tablecards);
 	printf("Seleccione a carta a jogar (nr carta):\n");
 	for(i=1; i<=ncartas;i++) {
@@ -330,6 +336,9 @@ int main(int argc, char *argv[])
 	pthread_create(&tide, NULL, esperaPorJogadores, NULL);
 	pthread_join(tide,NULL);
 
+
+	gettimeofday(&tv1, NULL);
+
 	int nr_cartas_por_jogador = N_CARTAS/n_jogs;
 
 	int fdr;
@@ -395,6 +404,29 @@ int main(int argc, char *argv[])
 		nrcartas--;
 	}
 
+	printf("Fim do Jogo!\n");
+	struct timeval tv2;
+	gettimeofday(&tv2, NULL);
+	printf("Tempo total de jogo: %f\n\n\n",((double) (tv2.tv_usec - tv1.tv_usec) / 1000000
+			+ (double) (tv2.tv_sec - tv1.tv_sec)));
+
+
+	char inp[10];
+	char esc;
+	do{
+		printf("Escolha: ");
+		scanf("%s",inp);
+		esc = inp[0];
+		fflush(stdin);
+	}while(esc!='s' && esc!='n');
+
+
+		if(esc=='s') {
+			int i;
+			for(i=0;i<N_CARTAS/n_jogs;i++)
+				printf("Ronda %d: %s\n\n",i+1,shm->rondas[i]);
+		}
+
 
 	//fecha FIFO do jogador
 	close(fdr);
@@ -416,10 +448,10 @@ int main(int argc, char *argv[])
 			perror("sem_unlink failure");
 
 		//dealer destroi a regiao de memoria partilhada
-		if (shm_unlink(SHM_NAME) < 0)
+		while(shm_unlink(SHM_NAME) < 0)
 		{
-			perror("Failure in shm_unlink()");
-			exit(EXIT_FAILURE);
+			perror("Waiting for remove the shared memory...\n");
+			sleep(2);
 		}
 	}
 
