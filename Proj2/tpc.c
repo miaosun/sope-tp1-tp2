@@ -1,28 +1,78 @@
 #include "tpc.h"
 
-#define N_CARTAS 6
+#define N_CARTAS 6 //numero de cartas do baralho
 
-char SHM_NAME[20];
+char SHM_NAME[20]; //nome da memoria partilhada
+Shared_mem *shm;
+//tamanho da memoria partilhada (tamanho de uma estrutura Shared_mem)
+#define SHM_SIZE sizeof(Shared_mem)
+
 char SEM_NAME[] = "/sem";
 char logfilename[30];
 
 int playerNr;
 char nome[20];
 
+pthread_t waitThread;
+
 time_t rawtime;
 struct tm * timeinfo;
-
 struct timeval tv1;
 
+//baralhos com quantidades diferentes de cartas
 //char* baralho_cartas[52]= {"Ac","2c","3c","4c","5c","6c","7c","8c","9c","10c","Jc","Qc","Kc","Ad","2d","3d","4d","5d","6d","7d","8d","9d","10d","Jd","Qd","Kd","Ah","2h","3h","4h","5h","6h","7h","8h","9h","10h","Jh","Qh","Kh","As","2s","3s","4s","5s","6s","7s","8s","9s","10s","Js","Qs","Ks"};
 //char* baralho_cartas[20]= {"Ac","2c","3c","Qc","Kc","Ad","2d","3d","Qd","Kc","Ah","2h","3h","Qh","Kh","As","2s","3s","Qs","Ks"};
 char* baralho_cartas[6]= {"Ac","2c","3c","Qc","Kc","Ad"};
 
-Shared_mem *shm;
 
-#define SHM_SIZE sizeof(Shared_mem)
+void *waiting_for_play(void* arg) {
 
-//escreve para o ficheiro de log
+	printf("\n\n\nSeleccione para ver Informações:\n");
+	while(1) {
+		printf("1-Cartas da Mesa\n2-Mao\n3-Rondas Anteriores\n4-Tempo de Jogo\n");
+
+		char inp[10];
+		int esc;
+		do{
+			printf("Escolha: ");
+			scanf("%s",inp);
+			esc = atoi(inp);
+			fflush(stdin);
+		} while(esc > 4 || esc < 1);
+
+		switch(esc) {
+		case 1:
+			printf("Cartas da Mesa: %s\n",shm->tablecards);
+			break;
+		case 2:
+		{
+			printf("Cartas da Mao: %s\n",(char*)arg);
+			break;
+		}
+		case 3:
+		{
+			printf("\n");
+			int i;
+			for(i=0;i<shm->roundnumber-1;i++)
+				printf("Ronda %d: %s\n",i+1,shm->rondas[i]);
+			printf("\n");
+			break;
+		}
+		case 4:
+		{
+			struct timeval tv2;
+			gettimeofday(&tv2, NULL);
+			printf("Tempo de jogo: %f\n",((double) (tv2.tv_usec - tv1.tv_usec) / 1000000	+ (double) (tv2.tv_sec - tv1.tv_sec)));
+			break;
+		}
+		}
+		printf("\n");
+	}
+	return NULL;
+}
+
+
+//permite que cada jogador escreva, sincronizadamente, no ficheiro log
 void *escreve_log(void* arg) {
 	pthread_mutex_lock(&shm->log_lock);
 	FILE* logf;
@@ -42,7 +92,7 @@ char* getTime() {
 	tempo=(char*)malloc(sizeof(char)*30);
 	time(&rawtime);
 	timeinfo = localtime(&rawtime);
-	//cria nome da pasta de backup com base na data&hora actual
+
 	strftime(tempo,20,"%Y-%m-%d %H:%M:%S", timeinfo);
 	return tempo;
 }
@@ -56,7 +106,7 @@ void *open_dealer_fifo(void *arg) {
 	return ret;
 }
 
-//retira uma carta do baralho
+//retira aleatoriamente uma carta do baralho ainda presente
 char* retira_carta_baralho(int count) {
 
 	int n = rand() % count;
@@ -69,6 +119,7 @@ char* retira_carta_baralho(int count) {
 	return carta;
 }
 
+//devolve as cartas de um jogador na forma de uma string
 char* apresentacao_cartas(char* c[], int nr) {
 	char* s=(char*)malloc(sizeof(char)*100);
 	strcpy(s, "");
@@ -83,6 +134,7 @@ char* apresentacao_cartas(char* c[], int nr) {
 	return s;
 }
 
+//thread em que os jogadores esperam que entrem todos os jogadores
 void *esperaPorJogadores(void* arg)
 {
 	pthread_mutex_lock(&shm->start_lock);
@@ -95,6 +147,7 @@ void *esperaPorJogadores(void* arg)
 	return NULL;
 }
 
+//função para jogar uma carta
 void jogar_carta(char* mao[], int ncartas) {
 	int i;
 	struct timeval tv2;
@@ -125,6 +178,7 @@ void jogar_carta(char* mao[], int ncartas) {
 	sprintf(line2,"%s%s | Player%d-%s | hand           | %s",line1,getTime(), playerNr,nome,apresentacao_cartas(mao,ncartas-1));
 
 	pthread_t tid;
+	//thread que escreve o ficheiro log
 	pthread_create(&tid, NULL, escreve_log, (void *)&line2);
 
 	strcat(shm->tablecards,carta);
@@ -135,42 +189,47 @@ void jogar_carta(char* mao[], int ncartas) {
 		shm->vez=0;
 	shm->ajogar++;
 
+	//permite que os outros jogadores verifiquem se já chegou a sua vez de jogar
 	pthread_cond_broadcast(&shm->var_cond);
+	char* apr= apresentacao_cartas(mao, ncartas);
+	pthread_create(&waitThread,NULL,waiting_for_play,(void *)apr);
 }
 
+//funcao para jogar, que sincroniza quem deve jogar quando
 void jogar(int nrJogador,char* mao[], int ncartas) {
 	pthread_mutex_lock(&shm->start_lock);
 
 	if(nrJogador==0) {
 
-		while(shm->vez != nrJogador)
+		while(shm->vez != nrJogador) //enquanto nao for a sua vez
 		{
 			printf("Vez do jogador %d\n",shm->vez);
 			pthread_cond_wait(&shm->var_cond, &shm->start_lock);
 		}
+		//"limpa" a mesa, guarda informação das cartas da mesa, actualiza vez, aumenta o numero da ronda
 		if(shm->roundnumber!=0) {
 			printf("Fim da Ronda: %s\n\n",shm->tablecards);
-			printf("Ronda %d!\n",shm->roundnumber);
-			//shm->rondas[shm->roundnumber-1] = (char*) malloc(sizeof(shm->tablecards));
+			printf("Ronda %d!\n",shm->roundnumber+1);
 			strcpy(shm->rondas[shm->roundnumber-1],shm->tablecards);
 		}
 		shm->vez=0;
-
 		shm->roundnumber++;
 		shm->ajogar=0;
 		strcpy(shm->tablecards,"");
 	} else {
-		while(shm->vez != nrJogador)
+		while(shm->vez != nrJogador) //enquanto não for a sua vez
 		{
 			printf("É a vez do jogador %d\n",shm->vez);
 			pthread_cond_wait(&shm->var_cond, &shm->start_lock);
 		}
 	}
+	pthread_cancel(waitThread); //fecha thread para ver informaçoes, lançada enquanto espera pela sua vez
 	printf("É a sua vez de Jogar\n\n");
-	jogar_carta(mao,ncartas);
+	jogar_carta(mao,ncartas); //jogar uma carta
 	pthread_mutex_unlock(&shm->start_lock);
 }
 
+//apresenta o resumo de todas as rondas, caso o utilizador deseje
 void* ver_resumo(void *arg)
 {
 	char inp[10];
@@ -184,8 +243,10 @@ void* ver_resumo(void *arg)
 
 	if(esc=='s') {
 		int i;
+		printf("\n");
 		for(i=0;i<N_CARTAS/shm->n_jogadores;i++)
-			printf("Ronda %d: %s\n\n",i+1,shm->rondas[i]);
+			printf("Ronda %d: %s\n",i+1,shm->rondas[i]);
+		printf("\n");
 	}
 	return NULL;
 }
@@ -222,8 +283,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	//número de jogadores
-	n_jogs = atoi(argv[3]);
+	n_jogs = atoi(argv[3]); //número de jogadores
 
 	sem_t *sem;
 	sem = sem_open(SEM_NAME,O_CREAT,0600,1);
@@ -235,7 +295,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
+
+	//semaforo que nao permite que mais do que um jogador tente criar a memoria partilhada em simultaneo
 	sem_wait(sem);
+
 
 	//tenta criar regiao de memoria partilhada
 	if((shmfd = shm_open(SHM_NAME,O_CREAT|O_RDWR|O_EXCL,0660)) < 0)
@@ -250,7 +313,7 @@ int main(int argc, char *argv[])
 		shm = (Shared_mem *) mmap(0,SHM_SIZE,PROT_READ|PROT_WRITE,MAP_SHARED,shmfd,0);
 		if(shm == MAP_FAILED)
 		{
-			perror("READER failure in mmap()");
+			perror("failure in mmap()");
 			exit(2);
 		}
 
@@ -298,7 +361,7 @@ int main(int argc, char *argv[])
 		shm = (Shared_mem *) mmap(0,SHM_SIZE,PROT_READ|PROT_WRITE,MAP_SHARED,shmfd,0);
 		if(shm == MAP_FAILED)
 		{
-			perror("READER failure in mmap()");
+			perror("failure in mmap()");
 			exit(2);
 		}
 
@@ -350,7 +413,9 @@ int main(int argc, char *argv[])
 
 	}
 
+
 	sem_post(sem);
+
 	pthread_t tide;
 	pthread_create(&tide, NULL, esperaPorJogadores, NULL);
 	pthread_join(tide,NULL);
@@ -405,9 +470,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	printf("Cartas da Mao: \n");
+	printf("Cartas da Mao: ");
 	char* repr_cartas=apresentacao_cartas(mao_cartas,nr_cartas_por_jogador);
-	//impressao_cartas(mao_cartas,nr_cartas_por_jogador);
 	printf("%s",repr_cartas);
 	int nrcartas=nr_cartas_por_jogador;
 
@@ -422,21 +486,22 @@ int main(int argc, char *argv[])
 		rounds--;
 		nrcartas--;
 	}
+	pthread_cancel(waitThread);
 
-	if(playerNr == 0) {
+	if(playerNr == 0) { //espera que jogo acabe para registar a ultima ronda
 		printf("\n...Waiting for others to end...\n\n");
 		while(shm->ajogar != shm->n_jogadores){}
-		//shm->rondas[shm->roundnumber-1] = (char*) malloc(sizeof(shm->tablecards));
 		strcpy(shm->rondas[shm->roundnumber-1],shm->tablecards);
 	}
+
 	printf("Fim do Jogo!\n");
 	struct timeval tv2;
 	gettimeofday(&tv2, NULL);
+	//apresenta tempo total desde o inicio do jogo
 	printf("Tempo total de jogo: %f\n\n\n",((double) (tv2.tv_usec - tv1.tv_usec) / 1000000
 			+ (double) (tv2.tv_sec - tv1.tv_sec)));
 
 	printf("Prentede ver resumo de todas as jogadas? (s/n)\n");
-	//TODO
 	pthread_t tid1;
 	pthread_create(&tid1, NULL, ver_resumo, NULL);
 	pthread_join(tid1,NULL);
@@ -448,7 +513,7 @@ int main(int argc, char *argv[])
 	if(unlink(myFIFO)<0) {
 		printf("Erro a destroir FIFO\n");
 	}
-	if(sem_close(sem)<0)
+	if(sem_close(sem)<0) //fecha semaforo
 		perror("sem_close failure");
 
 	//munmap da melhoria partilhada
@@ -458,7 +523,7 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 	if(playerNr==0) {
-		if(sem_unlink(SEM_NAME)<0)
+		if(sem_unlink(SEM_NAME)<0) //remove semaforo
 			perror("sem_unlink failure");
 
 		//dealer destroi a regiao de memoria partilhada
